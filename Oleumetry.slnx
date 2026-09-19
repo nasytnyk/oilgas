@@ -5,8 +5,8 @@
     <Project Path="src/Oleumetry.Devices/Oleumetry.Devices.csproj" />
     <Project Path="src/Oleumetry.UseCases/Oleumetry.UseCases.csproj" />
     <Project Path="src/Oleumetry.Contracts/Oleumetry.Contracts.csproj" />
-    <Project Path="src/Oleumetry.Domain/Oleumetry.Domain.csproj" />
     <Project Path="src/Oleumetry.Emqx/Oleumetry.Emqx.csproj" />
+    <Project Path="src/Oleumetry.Model/Oleumetry.Model.csproj" />
     <Project Path="src/Oleumetry.Postgres/Oleumetry.Postgres.csproj" />
     <Project Path="src/Oleumetry.WebTier/Oleumetry.WebTier.csproj" />
     <Project Path="src/Oleumetry.WorkerTier/Oleumetry.WorkerTier.csproj" />

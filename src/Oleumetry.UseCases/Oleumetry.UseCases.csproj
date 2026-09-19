@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Oleumetry.Domain\Oleumetry.Domain.csproj" />
+    <ProjectReference Include="..\Oleumetry.Model\Oleumetry.Model.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

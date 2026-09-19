@@ -1,8 +1,5 @@
-namespace Oleumetry.Domain.Devices;
+namespace Oleumetry.Model;
 
-/// <summary>
-/// Тип обладнання. Визначає набір метрик і порогів (через DeviceTypeProfile).
-/// </summary>
 public enum DeviceType
 {
     EspPump,     // електроцентробіжний насос
