@@ -42,23 +42,15 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── EMQX: MQTT-брокер (адаптер Oilgas.Emqx) ──
-  emqx:
-    image: emqx:5
-    container_name: oilgas-emqx
-    environment:
-      EMQX_DASHBOARD__DEFAULT_PASSWORD: oilgas   # логін дашборда: admin / oilgas
+  # ── Mosquitto: MQTT-брокер (той самий образ, що в Azure Container Apps) ──
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: oilgas-mosquitto
     ports:
-      - "1883:1883"      # MQTT — сюди публікує Devices і підписується WorkerTier
-      - "8083:8083"      # MQTT over WebSocket
-      - "18083:18083"    # Dashboard + status API
+      - "1883:1883"      # MQTT — сюди публікує Hardware і підписується WorkerTier
     volumes:
-      - emqx-data:/opt/emqx/data
-    healthcheck:
-      test: ["CMD", "emqx", "ctl", "status"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
 
   # ── Redis: backplane для GraphQL-підписок (адаптер Oilgas.Redis) ──
   redis:
@@ -78,5 +70,5 @@ services:
 volumes:
   postgres-data:
   rabbitmq-data:
-  emqx-data:
+  mosquitto-data:
   redis-data:

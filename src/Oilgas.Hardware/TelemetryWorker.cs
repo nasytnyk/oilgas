@@ -27,7 +27,7 @@ public sealed class TelemetryWorker(
         {
             var client = await ConnectAsync(factory, unit, ct);
             if (client is null) continue;                       // не змогли — пропускаємо юніт
-            await PublishAsync(client, unit.StatusTopic, unit.BuildStatus("offline", DateTimeOffset.UtcNow), retain: true, ct);
+            await PublishAsync(client, unit.StatusTopic, unit.BuildStatus("offline", DateTimeOffset.UtcNow), retain: false, ct);
             _clients.Add((unit, client));
         }
         logger.LogInformation("Hardware connected: {Count} units (telemetry OFF by default)", _clients.Count);
@@ -43,7 +43,7 @@ public sealed class TelemetryWorker(
             {
                 var status = on ? "online" : "offline";
                 foreach (var (unit, client) in _clients)
-                    await PublishAsync(client, unit.StatusTopic, unit.BuildStatus(status, DateTimeOffset.UtcNow), retain: true, ct);
+                    await PublishAsync(client, unit.StatusTopic, unit.BuildStatus(status, DateTimeOffset.UtcNow), retain: false, ct);
                 logger.LogInformation("Telemetry {State}", on ? "STARTED" : "STOPPED");
                 prevOn = on;
             }
@@ -71,7 +71,7 @@ public sealed class TelemetryWorker(
             .WithClientId($"oilgas-hw-{unit.Id}")
             .WithWillTopic(unit.StatusTopic)
             .WithWillPayload(will)
-            .WithWillRetain(true)
+            .WithWillRetain(false)
             .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce);
 
         if (_opt.UseTls)
@@ -121,7 +121,7 @@ public sealed class TelemetryWorker(
             {
                 if (client.IsConnected)
                 {
-                    await PublishAsync(client, unit.StatusTopic, unit.BuildStatus("offline", DateTimeOffset.UtcNow), retain: true, CancellationToken.None);
+                    await PublishAsync(client, unit.StatusTopic, unit.BuildStatus("offline", DateTimeOffset.UtcNow), retain: false, CancellationToken.None);
                     await client.DisconnectAsync();
                 }
             }
