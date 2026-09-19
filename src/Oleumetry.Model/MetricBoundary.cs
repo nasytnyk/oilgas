@@ -1,10 +1,11 @@
 namespace Oleumetry.Model;
 
 /// <summary>
-/// Межі для метрики певного типу обладнання (реф-дані в БД).
+/// Пороги для метрики певного типу обладнання (реф-дані в БД).
+/// Парна до Hardware.MetricProfile за іменем метрики: profile — ЯК генерувати, boundary — КОЛИ аларм.
 /// null з боку = немає межі з цього боку (односторонній аларм).
 /// </summary>
-public class Boundary
+public class MetricBoundary
 {
     public int Id { get; set; }
     public DeviceType DeviceType { get; set; }

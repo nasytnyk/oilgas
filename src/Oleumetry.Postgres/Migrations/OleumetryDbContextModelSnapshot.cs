@@ -17,7 +17,7 @@ namespace Oleumetry.Postgres.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.4")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -60,7 +60,40 @@ namespace Oleumetry.Postgres.Migrations
                     b.ToTable("Anomalies");
                 });
 
-            modelBuilder.Entity("Oleumetry.Model.Boundary", b =>
+            modelBuilder.Entity("Oleumetry.Model.Device", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsOnline")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MineId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Serial")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MineId");
+
+                    b.ToTable("Devices");
+                });
+
+            modelBuilder.Entity("Oleumetry.Model.MetricBoundary", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -99,39 +132,6 @@ namespace Oleumetry.Postgres.Migrations
                         .IsUnique();
 
                     b.ToTable("Boundaries");
-                });
-
-            modelBuilder.Entity("Oleumetry.Model.Device", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsOnline")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset?>("LastSeenAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("MineId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Serial")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MineId");
-
-                    b.ToTable("Devices");
                 });
 
             modelBuilder.Entity("Oleumetry.Model.Mine", b =>

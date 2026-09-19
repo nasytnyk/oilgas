@@ -13,7 +13,7 @@ public class OleumetryDbContext(DbContextOptions<OleumetryDbContext> options) : 
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<Tick> Ticks => Set<Tick>();
     public DbSet<Anomaly> Anomalies => Set<Anomaly>();
-    public DbSet<Boundary> Boundaries => Set<Boundary>();
+    public DbSet<MetricBoundary> Boundaries => Set<MetricBoundary>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -38,7 +38,7 @@ public class OleumetryDbContext(DbContextOptions<OleumetryDbContext> options) : 
             e.HasIndex(a => new { a.DeviceId, a.Timestamp });
         });
 
-        b.Entity<Boundary>(e =>
+        b.Entity<MetricBoundary>(e =>
         {
             e.Property(x => x.DeviceType).HasConversion<string>().HasMaxLength(32);
             // один набір меж на (тип обладнання, метрика)
