@@ -5,7 +5,6 @@
     <Project Path="src/Oilgas.Hardware/Oilgas.Hardware.csproj" />
     <Project Path="src/Oilgas.UseCases/Oilgas.UseCases.csproj" />
     <Project Path="src/Oilgas.Contracts/Oilgas.Contracts.csproj" />
-    <Project Path="src/Oilgas.Emqx/Oilgas.Emqx.csproj" />
     <Project Path="src/Oilgas.Model/Oilgas.Model.csproj" />
     <Project Path="src/Oilgas.Postgres/Oilgas.Postgres.csproj" />
     <Project Path="src/Oilgas.WebTier/Oilgas.WebTier.csproj" />

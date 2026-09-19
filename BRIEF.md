@@ -40,7 +40,7 @@
 | Хмарний PG | **Neon** (serverless, є як Azure-сервіс) | локально — docker |
 | Міграції | **EF Core migrations** (raw SQL для партицій) | DbUp більше не потрібен |
 | Доступ до даних | **EF Core** (Npgsql), повний | HC-проєкції/фільтри/пагінація «з коробки» |
-| MQTT-брокер | **EMQX** (MQTT 5, web-дашборд) | локально docker / EMQX Serverless free |
+| MQTT-брокер | **Mosquitto** (eclipse-mosquitto:2) | локально docker / self-hosted у Container Apps |
 | MQTT-клієнт (.NET) | **MQTTnet** | стандарт де-факто |
 | Черга | **RabbitMQ**, **topic exchange** | клієнт — офіційний **RabbitMQ.Client** |
 | GraphQL-сервер | **Hot Chocolate** (ChilliCream) | Queries + Subscriptions, вбудована IDE **Nitro** |
@@ -50,7 +50,7 @@
 | GraphQL-клієнт | **Apollo Client** | WS-підписки + link-логер |
 | UI-kit | **react-bootstrap + react-icons** | |
 | Графіки | **Recharts** | |
-| Локальна інфра | **docker-compose** | EMQX + RabbitMQ + Postgres + Redis |
+| Локальна інфра | **docker-compose** | Mosquitto + RabbitMQ + Postgres + Redis |
 | Топологія | **3 деплой-юніти**: WebTier / WorkerTier / Devices | Redis розв'язує web-tier і worker-tier |
 | CI/CD | **поки нема** (Phase 4) | design лишається free-tier-ready |
 
@@ -61,7 +61,7 @@
 ```mermaid
 flowchart LR
     SIM["Oilgas.Devices<br/>(.NET Worker)<br/>N пристроїв"]
-    BR["EMQX<br/>(MQTT 5 broker)"]
+    BR["Mosquitto<br/>(MQTT broker)"]
     subgraph WORKER["Oilgas.WorkerTier (worker-tier)"]
         ING["Ingestion Gateway"]
         PC["Persistence Consumer"]
@@ -174,7 +174,7 @@ CREATE TABLE anomalies (
 
 ## 5. MQTT
 
-- **Брокер:** EMQX (локально docker: `1883` MQTT, `8083` WS, `18083` dashboard).
+- **Брокер:** Mosquitto (локально docker: `1883` MQTT).
 - **Клієнт .NET:** MQTTnet.
 
 ### 5.1 Топіки
@@ -254,7 +254,7 @@ type Query {
   ticks(deviceId: ID!, metric: String, from: DateTime, to: DateTime,
            first: Int, after: String): TickConnection!   # cursor-пагінація (HC UsePaging)
   anomalies(status: String, deviceId: ID, from: DateTime, to: DateTime): [Anomaly!]!
-  infra: InfraStatus!   # дані з RabbitMQ Management API + EMQX API
+  infra: InfraStatus!   # дані з RabbitMQ Management API + Mosquitto $SYS-топіки
 }
 ```
 
@@ -274,7 +274,7 @@ type Subscription {
 ### 7.3 Інфраструктурний статус
 `infra` збирається бекендом (браузер не ходить в інфру напряму):
 - **RabbitMQ**: глибина черг, DLQ, publish/ack rate — через RabbitMQ **Management HTTP API**.
-- **MQTT**: підключені клієнти/сесії — через **EMQX API**.
+- **MQTT**: підключені клієнти/сесії — через $SYS-топіки Mosquitto.
 
 ---
 
@@ -310,7 +310,7 @@ oilgas/
 │  ├─ Oilgas.Postgres/ # адаптер PostgreSQL: DbContext, репозиторії, міграції
 │  │                            #   → UseCases (+ Model транзитивно)
 │  ├─ Oilgas.RabbitMq/ # адаптер RabbitMQ: publisher/consumers/DLQ + Mgmt API → UseCases, Contracts
-│  ├─ Oilgas.Emqx/ # адаптер EMQX: MQTTnet-інгест + status API → UseCases, Contracts
+│  ├─ Oilgas.Mosquitto/ # адаптер Mosquitto: MQTTnet-інгест → UseCases, Contracts
 │  ├─ Oilgas.Redis/ # адаптер Redis: backplane підписок → UseCases, Contracts
 │  ├─ Oilgas.Contracts/      # чисті wire-DTO (MQTT payload, інтеграційні події)
 │  │                            #   shared kernel, залежностей — НУЛЬ
@@ -318,17 +318,17 @@ oilgas/
 │  │                            #   застосовує EF-міграції на старті. → UseCases, Postgres, RabbitMq, Redis
 │  ├─ Oilgas.WorkerTier/      # host (worker-tier): BackgroundServices
 │  │                            #   Ingestion / Persistence / Realtime / PartitionMaintenance
-│  │                            #   → UseCases, Postgres, RabbitMq, Emqx, Redis, Contracts
+│  │                            #   → UseCases, Postgres, RabbitMq, Mosquitto, Redis, Contracts
 │  └─ Oilgas.Devices/      # host: .NET Worker → MQTT. → ТІЛЬКИ Contracts
 ├─ web/                         # Vite + React + TS (Apollo, react-bootstrap)
 ├─ deploy/
-│  └─ docker-compose.yml        # emqx + rabbitmq + postgres + redis
+│  └─ docker-compose.yml        # mosquitto + rabbitmq + postgres + redis
 └─ BRIEF.md
 ```
 
 ### 9.1 Правило залежностей (Clean Architecture)
 ```
-Model ◄── UseCases ◄── Adapters { Postgres · RabbitMq · Emqx · Redis } ◄── Hosts (WebTier / WorkerTier / Devices)
+Model ◄── UseCases ◄── Adapters { Postgres · RabbitMq · Mosquitto · Redis } ◄── Hosts (WebTier / WorkerTier / Devices)
 Contracts ── shared kernel, ні від кого не залежить; використовують адаптери і Devices
 ```
 - Стрілки дивляться **всередину, до Model**; Model — прості POCO, не знає про EF/MQTT/Rabbit.
@@ -345,7 +345,7 @@ Contracts ── shared kernel, ні від кого не залежить; ви
 
 | Сервіс | Порти |
 |---|---|
-| EMQX | 1883 (MQTT), 8083 (WS), 18083 (dashboard) |
+| Mosquitto | 1883 (MQTT) |
 | RabbitMQ | 5672 (amqp), 15672 (management UI) |
 | PostgreSQL | 5432 |
 | Redis | 6379 |
@@ -365,7 +365,7 @@ EF Core migrations застосовуються при старті WebTier (с�
 | WebTier / WorkerTier / Devices | Azure **Container Apps** (3 застосунки, безкоштовний грант) |
 | PostgreSQL | **Neon** (serverless, Azure-native) |
 | RabbitMQ | **CloudAMQP** «Little Lemur» |
-| MQTT | **EMQX Serverless** / HiveMQ Cloud |
+| MQTT | **Mosquitto** (self-hosted у Container Apps) |
 | Redis (backplane) | **Redis Cloud free** (30 МБ) / Upstash — не Azure Cache (нема free) |
 
 > Нота по free-grant: WorkerTier і Devices майже завжди активні, тож не «сплять до нуля». За мінімальних ресурсів грант Container Apps це витримує; Devices можна вмикати на вимогу, щоб економити квоту.
@@ -376,11 +376,11 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 
 ## 12. Дорожня карта (фази)
 
-- **Phase 0 — Каркас:** solution (10 проектів: Model/UseCases/Contracts + Postgres/RabbitMq/Emqx/Redis + WebTier/WorkerTier/Devices), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Oilgas.Postgres + перша міграція з партиціями.
+- **Phase 0 — Каркас:** solution (10 проектів: Model/UseCases/Contracts + Postgres/RabbitMq/Mosquitto/Redis + WebTier/WorkerTier/Devices), `docker-compose` (Mosquitto+RabbitMQ+Postgres+Redis), EF Core DbContext у Oilgas.Postgres + перша міграція з партиціями.
 - **Phase 1 — Backend-труба:** Devices → MQTT → WorkerTier(Ingestion) → RabbitMQ → WorkerTier(Persistence) → Postgres (EF).
 - **Phase 2 — GraphQL + realtime:** Hot Chocolate (queries + subscriptions/Redis), Realtime-споживач + inline-аларми → Redis → WebTier.
 - **Phase 3 — Дашборд:** React з усіма 4 віджетами.
-- **Phase 4 — Хмара (пізніше):** Azure free-tier (3 Container Apps + SWA + Neon + CloudAMQP + EMQX Serverless + Redis Cloud) + GitHub Actions.
+- **Phase 4 — Хмара (пізніше):** Azure free-tier (3 Container Apps + SWA + Neon + CloudAMQP + Mosquitto (Container Apps) + Redis Cloud) + GitHub Actions.
 
 ---
 
@@ -393,7 +393,7 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 | 3 | Хмарний Postgres | Neon (Azure-native) |
 | 4 | Ретенція | Нема, лише ліміт темпу |
 | 5 | Обладнання | Кілька типів (mixed) |
-| 6 | MQTT-брокер | EMQX |
+| 6 | MQTT-брокер | Mosquitto (self-hosted, Container Apps) |
 | 7 | Payload | JSON |
 | 8 | «Обладнання» | Окремий .NET Worker (Devices) |
 | 9 | MQTT-фічі | LWT + QoS 1 + retained + MQTT5 |
@@ -414,6 +414,6 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 | 24 | CI/CD | Поки без Actions |
 | 25 | Назва | **Oilgas** |
 | 26 | Backplane | **Redis** (Redis Cloud free / Upstash; не Azure Cache) |
-| 27 | Архітектура | Шарувата (без DDD): Model/UseCases/Contracts + адаптери за системою (Postgres/RabbitMq/Emqx/Redis) |
+| 27 | Архітектура | Шарувата (без DDD): Model/UseCases/Contracts + адаптери за системою (Postgres/RabbitMq/Mosquitto/Redis) |
 | 28 | Розбивка адаптерів | Повна, за зовнішньою системою: кожен проект володіє всім спілкуванням зі своєю системою (дані + status/mgmt API) |
 | 29 | Без DDD (наївна модель) | Прості POCO у Oilgas.Model; логіка в сервісах UseCases. Домен тонкий — DDD був церемонією |
