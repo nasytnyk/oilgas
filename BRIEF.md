@@ -302,13 +302,13 @@ type Subscription {
 oleumetry/
 ├─ Oleumetry.slnx
 ├─ src/
-│  ├─ Oleumetry.Domain/         # ядро: entities, value objects, domain events,
-│  │                            #   domain services (rich model: пороги алармів тут)
+│  ├─ Oleumetry.Model/         # прості POCO-сутності:
+│  │                            #   Asset, Device, Reading, Alarm, MetricThreshold + enums
 │  │                            #   залежностей — НУЛЬ
-│  ├─ Oleumetry.UseCases/     # use-cases + порти (інтерфейси репо/публікаторів)
-│  │                            #   → Domain
+│  ├─ Oleumetry.UseCases/     # тонкий шар сервісів (оцінка порогів, оркестрація)
+│  │                            #   → Model
 │  ├─ Oleumetry.Postgres/ # адаптер PostgreSQL: DbContext, репозиторії, міграції
-│  │                            #   → UseCases (+ Domain транзитивно)
+│  │                            #   → UseCases (+ Model транзитивно)
 │  ├─ Oleumetry.RabbitMq/ # адаптер RabbitMQ: publisher/consumers/DLQ + Mgmt API → UseCases, Contracts
 │  ├─ Oleumetry.Emqx/ # адаптер EMQX: MQTTnet-інгест + status API → UseCases, Contracts
 │  ├─ Oleumetry.Redis/ # адаптер Redis: backplane підписок → UseCases, Contracts
@@ -328,13 +328,13 @@ oleumetry/
 
 ### 9.1 Правило залежностей (Clean Architecture)
 ```
-Domain ◄── UseCases ◄── Adapters { Postgres · RabbitMq · Emqx · Redis } ◄── Hosts (WebTier / WorkerTier / Devices)
+Model ◄── UseCases ◄── Adapters { Postgres · RabbitMq · Emqx · Redis } ◄── Hosts (WebTier / WorkerTier / Devices)
 Contracts ── shared kernel, ні від кого не залежить; використовують адаптери і Devices
 ```
-- Стрілки дивляться **всередину, до Domain**; Domain не знає про EF/MQTT/Rabbit.
-- **rich domain:** логіка (оцінка порогів алармів) — у Domain (метод сутності/VO або domain service), не в сервісах-обгортках.
-- **readings — факти поза агрегатами** (append-only, CQRS-стиль); агрегати лишаються для реєстру обладнання.
-- 3 хости = 3 деплой-юніти; 7 бібліотек їх обслуговують (Domain, UseCases, Contracts + 4 адаптери за системою).
+- Стрілки дивляться **всередину, до Model**; Model — прості POCO, не знає про EF/MQTT/Rabbit.
+- **Без DDD:** логіка (оцінка порогів алармів) — у простому сервісі в UseCases, а не на сутностях.
+- `Reading` — append-only факт; `MetricThreshold` — реф-дані порогів у БД.
+- 3 хости = 3 деплой-юніти; 7 бібліотек їх обслуговують (Model, UseCases, Contracts + 4 адаптери за системою).
 ```
 
 ---
@@ -376,7 +376,7 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 
 ## 12. Дорожня карта (фази)
 
-- **Phase 0 — Каркас:** solution (10 проектів: Domain/UseCases/Contracts + Postgres/RabbitMq/Emqx/Redis + WebTier/WorkerTier/Devices), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Oleumetry.Postgres + перша міграція з партиціями.
+- **Phase 0 — Каркас:** solution (10 проектів: Model/UseCases/Contracts + Postgres/RabbitMq/Emqx/Redis + WebTier/WorkerTier/Devices), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Oleumetry.Postgres + перша міграція з партиціями.
 - **Phase 1 — Backend-труба:** Devices → MQTT → WorkerTier(Ingestion) → RabbitMQ → WorkerTier(Persistence) → Postgres (EF).
 - **Phase 2 — GraphQL + realtime:** Hot Chocolate (queries + subscriptions/Redis), Realtime-споживач + inline-аларми → Redis → WebTier.
 - **Phase 3 — Дашборд:** React з усіма 4 віджетами.
@@ -414,5 +414,6 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 | 24 | CI/CD | Поки без Actions |
 | 25 | Назва | **Oleumetry** |
 | 26 | Backplane | **Redis** (Redis Cloud free / Upstash; не Azure Cache) |
-| 27 | Архітектура | **Clean Architecture**: Domain/UseCases/Contracts + адаптери за системою (Postgres/RabbitMq/Emqx/Redis); rich domain; readings — факти поза агрегатами |
+| 27 | Архітектура | Шарувата (без DDD): Model/UseCases/Contracts + адаптери за системою (Postgres/RabbitMq/Emqx/Redis) |
 | 28 | Розбивка адаптерів | Повна, за зовнішньою системою: кожен проект володіє всім спілкуванням зі своєю системою (дані + status/mgmt API) |
+| 29 | Без DDD (наївна модель) | Прості POCO у Oleumetry.Model; логіка в сервісах UseCases. Домен тонкий — DDD був церемонією |
