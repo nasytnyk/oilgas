@@ -1,17 +1,10 @@
 using Oleumetry.Contracts;
 
-namespace Oleumetry.Devices;
+namespace Oleumetry.Hardware;
 
-/// <summary>Опис метрики для генерації: базове значення, шум і шанс/величина сплеску (для алармів).</summary>
-public sealed record MetricSpec(
-    string Name, string Unit, double Baseline, double Noise, double SpikeChance, double SpikeDelta);
-
-/// <summary>
-/// Один пристрій-емулятор: генерує TelemetryMessage і знає свої MQTT-топіки.
-/// Чистий (без MQTT) — публікацією керує Worker.
-/// </summary>
-public sealed class Device(
-    string id, string type, string field, string well, IReadOnlyList<MetricSpec> metrics)
+/// <summary>Одна одиниця обладнання (емулятор): генерує TelemetryMessage і знає свої MQTT-топіки.</summary>
+public sealed class HardwareUnit(
+    string id, string type, string field, string well, IReadOnlyList<MetricProfile> metrics)
 {
     public string Id { get; } = id;
     public string Type { get; } = type;

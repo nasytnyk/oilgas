@@ -2,7 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Oleumetry.RabbitMq/Oleumetry.RabbitMq.csproj" />
     <Project Path="src/Oleumetry.Redis/Oleumetry.Redis.csproj" />
-    <Project Path="src/Oleumetry.Devices/Oleumetry.Devices.csproj" />
+    <Project Path="src/Oleumetry.Hardware/Oleumetry.Hardware.csproj" />
     <Project Path="src/Oleumetry.UseCases/Oleumetry.UseCases.csproj" />
     <Project Path="src/Oleumetry.Contracts/Oleumetry.Contracts.csproj" />
     <Project Path="src/Oleumetry.Emqx/Oleumetry.Emqx.csproj" />

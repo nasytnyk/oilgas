@@ -1,18 +1,18 @@
-<Project Sdk="Microsoft.NET.Sdk.Worker">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-Oleumetry.Devices-e5812423-6665-4319-9b9e-f8ccbf05bb9d</UserSecretsId>
+    <UserSecretsId>dotnet-Oleumetry.Hardware-e5812423-6665-4319-9b9e-f8ccbf05bb9d</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Oleumetry.Contracts\Oleumetry.Contracts.csproj" />
   </ItemGroup>
+
 </Project>
