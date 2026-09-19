@@ -51,7 +51,7 @@
 | UI-kit | **react-bootstrap + react-icons** | |
 | Графіки | **Recharts** | |
 | Локальна інфра | **docker-compose** | EMQX + RabbitMQ + Postgres + Redis |
-| Топологія | **3 деплой-юніти**: API / Processor / Simulator | Redis розв'язує web-tier і worker-tier |
+| Топологія | **3 деплой-юніти**: WebTier / WorkerTier / Simulator | Redis розв'язує web-tier і worker-tier |
 | CI/CD | **поки нема** (Phase 4) | design лишається free-tier-ready |
 
 ---
@@ -62,14 +62,14 @@
 flowchart LR
     SIM["Oleumetry.Simulator<br/>(.NET Worker)<br/>N пристроїв"]
     BR["EMQX<br/>(MQTT 5 broker)"]
-    subgraph PROC["Oleumetry.Processor (worker-tier)"]
+    subgraph WORKER["Oleumetry.WorkerTier (worker-tier)"]
         ING["Ingestion Gateway"]
         PC["Persistence Consumer"]
         RC["Realtime Consumer<br/>+ inline alarm-eval"]
     end
     RMQ["RabbitMQ<br/>topic exchange"]
     REDIS["Redis<br/>(pub/sub backplane)"]
-    subgraph API["Oleumetry.Api (web-tier)"]
+    subgraph WEBTIER["Oleumetry.WebTier (web-tier)"]
         GQL["Hot Chocolate<br/>Queries + Subscriptions"]
     end
     PG[("PostgreSQL<br/>partitioned")]
@@ -156,7 +156,7 @@ CREATE TABLE alarms (
 ```
 
 ### 4.4 Партиції та ретенція
-- Партиції — **по добі** (`RANGE(ts)`). Фоновий job у **Processor** (`PartitionMaintenance`) попередньо створює партиції на майбутнє.
+- Партиції — **по добі** (`RANGE(ts)`). Фоновий job у **WorkerTier** (`PartitionMaintenance`) попередньо створює партиції на майбутнє.
 - **Ретенції немає** — контролюємо об'єм через обмеження темпу симулятора. За потреби ретенція додається одним `DROP TABLE readings_<date>`.
 
 ### 4.5 Пороги алармів
@@ -167,8 +167,8 @@ CREATE TABLE alarms (
 - **Читання/GraphQL:** EF Core `IQueryable` + Hot Chocolate `[UseProjection]/[UseFiltering]/[UseSorting]/[UsePaging]` — мінімум коду.
 - **Запис телеметрії:** повний EF Core (за рішенням), але **батчами** (`AddRange` + один `SaveChanges` на пачку), щоб зменшити round-trips.
 - **Скейл-нота:** для демки (обмежений темп) change-tracking не заважає; якщо потік виросте — гарячий insert легко замінити на bulk (`EFCore.BulkExtensions`/Npgsql `COPY`) без зміни read-моделі.
-- **Міграції:** EF Core, застосовуються **одним власником — `Oleumetry.Api` на старті** (`Migrate()`); Processor толерує «схема ще не готова» через ретрай.
-- **DbContext** живе в `Oleumetry.Data` і використовується і в API (читання), і в Processor (запис).
+- **Міграції:** EF Core, застосовуються **одним власником — `Oleumetry.WebTier` на старті** (`Migrate()`); WorkerTier толерує «схема ще не готова» через ретрай.
+- **DbContext** живе в `Oleumetry.Infrastructure` і використовується і в WebTier (читання), і в WorkerTier (запис).
 
 ---
 
@@ -268,8 +268,8 @@ type Subscription {
 ```
 - Транспорт **graphql-ws** (WebSocket).
 - Підкладка **Redis backplane** (`HotChocolate.Subscriptions.Redis`).
-- Потік: Realtime-споживач (у **Processor**) шле подію через `ITopicEventSender` → Redis pub/sub → **API** доставляє підписникам. Обидва процеси конфігурують той самий Redis-провайдер (Processor — sender, API — receiver).
-- ✅ **Наслідок:** web-tier (API) і worker-tier (Processor) розв'язані; API масштабується на N інстансів. Топологія — вільний вибір, а не примус.
+- Потік: Realtime-споживач (у **WorkerTier**) шле подію через `ITopicEventSender` → Redis pub/sub → **WebTier** доставляє підписникам. Обидва процеси конфігурують той самий Redis-провайдер (WorkerTier — sender, WebTier — receiver).
+- ✅ **Наслідок:** web-tier (WebTier) і worker-tier (WorkerTier) розв'язані; WebTier масштабується на N інстансів. Топологія — вільний вибір, а не примус.
 
 ### 7.3 Інфраструктурний статус
 `infra` збирається бекендом (браузер не ходить в інфру напряму):
@@ -300,23 +300,38 @@ type Subscription {
 
 ```
 oleumetry/
-├─ Oleumetry.sln
+├─ Oleumetry.slnx
 ├─ src/
-│  ├─ Oleumetry.Api/           # web-tier: ASP.NET Core
-│  │                           #   Hot Chocolate (Queries + Subscriptions/Redis)
-│  │                           #   застосовує EF-міграції на старті
-│  ├─ Oleumetry.Processor/     # worker-tier: .NET host з BackgroundServices
-│  │                           #   IngestionGateway (MQTT→Rabbit)
-│  │                           #   PersistenceConsumer (→Postgres via EF)
-│  │                           #   RealtimeConsumer (inline-аларми → Redis + Postgres)
-│  │                           #   PartitionMaintenance (rolling партиції)
-│  ├─ Oleumetry.Simulator/     # .NET Worker → публікує MQTT
-│  ├─ Oleumetry.Data/          # EF Core DbContext, сутності, міграції
-│  └─ Oleumetry.Shared/        # DTO телеметрії, константи топіків/routing keys, Redis topic-и
-├─ web/                        # Vite + React + TS (Apollo, react-bootstrap)
+│  ├─ Oleumetry.Domain/         # ядро: entities, value objects, domain events,
+│  │                            #   domain services (rich model: пороги алармів тут)
+│  │                            #   залежностей — НУЛЬ
+│  ├─ Oleumetry.Application/     # use-cases + порти (інтерфейси репо/публікаторів)
+│  │                            #   → Domain
+│  ├─ Oleumetry.Infrastructure/ # адаптери: EF Core, MQTTnet, RabbitMQ.Client, Redis
+│  │                            #   реалізує порти. → Application, Domain, Contracts
+│  ├─ Oleumetry.Contracts/      # чисті wire-DTO (MQTT payload, інтеграційні події)
+│  │                            #   shared kernel, залежностей — НУЛЬ
+│  ├─ Oleumetry.WebTier/            # host (web-tier): Hot Chocolate
+│  │                            #   застосовує EF-міграції на старті. → Application, Infrastructure
+│  ├─ Oleumetry.WorkerTier/      # host (worker-tier): BackgroundServices
+│  │                            #   Ingestion / Persistence / Realtime / PartitionMaintenance
+│  │                            #   → Application, Infrastructure, Contracts
+│  └─ Oleumetry.Simulator/      # host: .NET Worker → MQTT. → ТІЛЬКИ Contracts
+├─ web/                         # Vite + React + TS (Apollo, react-bootstrap)
 ├─ deploy/
-│  └─ docker-compose.yml       # emqx + rabbitmq + postgres + redis
+│  └─ docker-compose.yml        # emqx + rabbitmq + postgres + redis
 └─ BRIEF.md
+```
+
+### 9.1 Правило залежностей (Clean Architecture)
+```
+Domain ◄── Application ◄── Infrastructure ◄── Hosts (WebTier / WorkerTier / Simulator)
+Contracts ── shared kernel, ні від кого не залежить; використовують Infrastructure і Simulator
+```
+- Стрілки дивляться **всередину, до Domain**; Domain не знає про EF/MQTT/Rabbit.
+- **rich domain:** логіка (оцінка порогів алармів) — у Domain (метод сутності/VO або domain service), не в сервісах-обгортках.
+- **readings — факти поза агрегатами** (append-only, CQRS-стиль); агрегати лишаються для реєстру обладнання.
+- 3 хости = 3 деплой-юніти; 4 бібліотеки їх обслуговують.
 ```
 
 ---
@@ -332,8 +347,8 @@ oleumetry/
 | PostgreSQL | 5432 |
 | Redis | 6379 |
 
-Далі: `dotnet run` для `Oleumetry.Api`, `Oleumetry.Processor` та `Oleumetry.Simulator`, `npm run dev` для `web/` (Vite на `5173`).
-EF Core migrations застосовуються при старті API (створює таблиці + початкові партиції); Processor чекає готовності схеми.
+Далі: `dotnet run` для `Oleumetry.WebTier`, `Oleumetry.WorkerTier` та `Oleumetry.Simulator`, `npm run dev` для `web/` (Vite на `5173`).
+EF Core migrations застосовуються при старті WebTier (створює таблиці + початкові партиції); WorkerTier чекає готовності схеми.
 
 ---
 
@@ -344,13 +359,13 @@ EF Core migrations застосовуються при старті API (ств�
 | Компонент | Free-tier ціль |
 |---|---|
 | React (статика) | Azure **Static Web Apps** |
-| API / Processor / Simulator | Azure **Container Apps** (3 застосунки, безкоштовний грант) |
+| WebTier / WorkerTier / Simulator | Azure **Container Apps** (3 застосунки, безкоштовний грант) |
 | PostgreSQL | **Neon** (serverless, Azure-native) |
 | RabbitMQ | **CloudAMQP** «Little Lemur» |
 | MQTT | **EMQX Serverless** / HiveMQ Cloud |
 | Redis (backplane) | **Redis Cloud free** (30 МБ) / Upstash — не Azure Cache (нема free) |
 
-> Нота по free-grant: Processor і Simulator майже завжди активні, тож не «сплять до нуля». За мінімальних ресурсів грант Container Apps це витримує; Simulator можна вмикати на вимогу, щоб економити квоту.
+> Нота по free-grant: WorkerTier і Simulator майже завжди активні, тож не «сплять до нуля». За мінімальних ресурсів грант Container Apps це витримує; Simulator можна вмикати на вимогу, щоб економити квоту.
 
 GitHub Actions — **поки не робимо**; додамо окремим етапом (build/test → docker images → deploy).
 
@@ -358,9 +373,9 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 
 ## 12. Дорожня карта (фази)
 
-- **Phase 0 — Каркас:** solution (5 проектів), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), `Oleumetry.Data` (EF Core DbContext + перша міграція з партиціями), `Oleumetry.Shared`.
-- **Phase 1 — Backend-труба:** Simulator → MQTT → Processor(Ingestion) → RabbitMQ → Processor(Persistence) → Postgres (EF).
-- **Phase 2 — GraphQL + realtime:** Hot Chocolate (queries + subscriptions/Redis), Realtime-споживач + inline-аларми → Redis → API.
+- **Phase 0 — Каркас:** solution (7 проектів: Domain/Application/Infrastructure/Contracts + WebTier/WorkerTier/Simulator), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Infrastructure + перша міграція з партиціями.
+- **Phase 1 — Backend-труба:** Simulator → MQTT → WorkerTier(Ingestion) → RabbitMQ → WorkerTier(Persistence) → Postgres (EF).
+- **Phase 2 — GraphQL + realtime:** Hot Chocolate (queries + subscriptions/Redis), Realtime-споживач + inline-аларми → Redis → WebTier.
 - **Phase 3 — Дашборд:** React з усіма 4 віджетами.
 - **Phase 4 — Хмара (пізніше):** Azure free-tier (3 Container Apps + SWA + Neon + CloudAMQP + EMQX Serverless + Redis Cloud) + GitHub Actions.
 
@@ -392,7 +407,8 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 | 20 | UI-kit | react-bootstrap + react-icons |
 | 21 | Дашборд-віджети | Телеметрія + MQTT-статус + RabbitMQ + GraphQL-інспектор |
 | 22 | Міграції | **EF Core migrations** |
-| 23 | Топологія | **3 юніти (API / Processor / Simulator)** |
+| 23 | Топологія | **3 юніти (WebTier / WorkerTier / Simulator)** |
 | 24 | CI/CD | Поки без Actions |
 | 25 | Назва | **Oleumetry** |
 | 26 | Backplane | **Redis** (Redis Cloud free / Upstash; не Azure Cache) |
+| 27 | Архітектура | **Clean Architecture**: Domain/Application/Infrastructure/Contracts; rich domain; readings — факти поза агрегатами |
