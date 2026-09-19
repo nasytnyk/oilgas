@@ -1,0 +1,43 @@
+name: Deploy WebTier
+
+# Поки що: збирає образ WebTier і пушить у GHCR.
+# Крок деплою в Container Apps додамо після того, як пакет стане public.
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'global.json'
+      - 'src/Oleumetry.WebTier/Dockerfile'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:        # дозволяє запускати вручну з вкладки Actions
+
+permissions:
+  contents: read
+  packages: write           # право пушити образ у GHCR
+
+env:
+  IMAGE: ghcr.io/nasytnyk/oleumetry-webtier
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # вбудований токен, живе лише під час запуску
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Oleumetry.WebTier/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
