@@ -51,7 +51,7 @@
 | UI-kit | **react-bootstrap + react-icons** | |
 | Графіки | **Recharts** | |
 | Локальна інфра | **docker-compose** | EMQX + RabbitMQ + Postgres + Redis |
-| Топологія | **3 деплой-юніти**: WebTier / WorkerTier / Simulator | Redis розв'язує web-tier і worker-tier |
+| Топологія | **3 деплой-юніти**: WebTier / WorkerTier / Devices | Redis розв'язує web-tier і worker-tier |
 | CI/CD | **поки нема** (Phase 4) | design лишається free-tier-ready |
 
 ---
@@ -60,7 +60,7 @@
 
 ```mermaid
 flowchart LR
-    SIM["Oleumetry.Simulator<br/>(.NET Worker)<br/>N пристроїв"]
+    SIM["Oleumetry.Devices<br/>(.NET Worker)<br/>N пристроїв"]
     BR["EMQX<br/>(MQTT 5 broker)"]
     subgraph WORKER["Oleumetry.WorkerTier (worker-tier)"]
         ING["Ingestion Gateway"]
@@ -207,7 +207,7 @@ Payload статусу (retained + LWT): `{ "deviceId": "esp-001", "status": "on
 - **Retained** last-value на `status` (і, за бажанням, на останню телеметрію) → новий підписник одразу бачить стан.
 - **MQTT 5 user properties**: `schemaVersion`, `contentType=application/json`, `messageId`.
 
-### 5.4 Симулятор (`Oleumetry.Simulator`)
+### 5.4 Симулятор (`Oleumetry.Devices`)
 - Окремий **.NET Worker** (`BackgroundService`), імітує N пристроїв різних типів.
 - Конфіг: кількість пристроїв, інтервал публікації (темп), сценарії дрейфу/сплесків для алармів.
 - Керується через `appsettings`/env (не через GraphQL у v1).
@@ -319,7 +319,7 @@ oleumetry/
 │  ├─ Oleumetry.WorkerTier/      # host (worker-tier): BackgroundServices
 │  │                            #   Ingestion / Persistence / Realtime / PartitionMaintenance
 │  │                            #   → UseCases, Postgres, RabbitMq, Emqx, Redis, Contracts
-│  └─ Oleumetry.Simulator/      # host: .NET Worker → MQTT. → ТІЛЬКИ Contracts
+│  └─ Oleumetry.Devices/      # host: .NET Worker → MQTT. → ТІЛЬКИ Contracts
 ├─ web/                         # Vite + React + TS (Apollo, react-bootstrap)
 ├─ deploy/
 │  └─ docker-compose.yml        # emqx + rabbitmq + postgres + redis
@@ -328,8 +328,8 @@ oleumetry/
 
 ### 9.1 Правило залежностей (Clean Architecture)
 ```
-Domain ◄── UseCases ◄── Adapters { Postgres · RabbitMq · Emqx · Redis } ◄── Hosts (WebTier / WorkerTier / Simulator)
-Contracts ── shared kernel, ні від кого не залежить; використовують адаптери і Simulator
+Domain ◄── UseCases ◄── Adapters { Postgres · RabbitMq · Emqx · Redis } ◄── Hosts (WebTier / WorkerTier / Devices)
+Contracts ── shared kernel, ні від кого не залежить; використовують адаптери і Devices
 ```
 - Стрілки дивляться **всередину, до Domain**; Domain не знає про EF/MQTT/Rabbit.
 - **rich domain:** логіка (оцінка порогів алармів) — у Domain (метод сутності/VO або domain service), не в сервісах-обгортках.
@@ -350,7 +350,7 @@ Contracts ── shared kernel, ні від кого не залежить; ви
 | PostgreSQL | 5432 |
 | Redis | 6379 |
 
-Далі: `dotnet run` для `Oleumetry.WebTier`, `Oleumetry.WorkerTier` та `Oleumetry.Simulator`, `npm run dev` для `web/` (Vite на `5173`).
+Далі: `dotnet run` для `Oleumetry.WebTier`, `Oleumetry.WorkerTier` та `Oleumetry.Devices`, `npm run dev` для `web/` (Vite на `5173`).
 EF Core migrations застосовуються при старті WebTier (створює таблиці + початкові партиції); WorkerTier чекає готовності схеми.
 
 ---
@@ -362,13 +362,13 @@ EF Core migrations застосовуються при старті WebTier (с�
 | Компонент | Free-tier ціль |
 |---|---|
 | React (статика) | Azure **Static Web Apps** |
-| WebTier / WorkerTier / Simulator | Azure **Container Apps** (3 застосунки, безкоштовний грант) |
+| WebTier / WorkerTier / Devices | Azure **Container Apps** (3 застосунки, безкоштовний грант) |
 | PostgreSQL | **Neon** (serverless, Azure-native) |
 | RabbitMQ | **CloudAMQP** «Little Lemur» |
 | MQTT | **EMQX Serverless** / HiveMQ Cloud |
 | Redis (backplane) | **Redis Cloud free** (30 МБ) / Upstash — не Azure Cache (нема free) |
 
-> Нота по free-grant: WorkerTier і Simulator майже завжди активні, тож не «сплять до нуля». За мінімальних ресурсів грант Container Apps це витримує; Simulator можна вмикати на вимогу, щоб економити квоту.
+> Нота по free-grant: WorkerTier і Devices майже завжди активні, тож не «сплять до нуля». За мінімальних ресурсів грант Container Apps це витримує; Devices можна вмикати на вимогу, щоб економити квоту.
 
 GitHub Actions — **поки не робимо**; додамо окремим етапом (build/test → docker images → deploy).
 
@@ -376,8 +376,8 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 
 ## 12. Дорожня карта (фази)
 
-- **Phase 0 — Каркас:** solution (10 проектів: Domain/UseCases/Contracts + Postgres/RabbitMq/Emqx/Redis + WebTier/WorkerTier/Simulator), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Oleumetry.Postgres + перша міграція з партиціями.
-- **Phase 1 — Backend-труба:** Simulator → MQTT → WorkerTier(Ingestion) → RabbitMQ → WorkerTier(Persistence) → Postgres (EF).
+- **Phase 0 — Каркас:** solution (10 проектів: Domain/UseCases/Contracts + Postgres/RabbitMq/Emqx/Redis + WebTier/WorkerTier/Devices), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Oleumetry.Postgres + перша міграція з партиціями.
+- **Phase 1 — Backend-труба:** Devices → MQTT → WorkerTier(Ingestion) → RabbitMQ → WorkerTier(Persistence) → Postgres (EF).
 - **Phase 2 — GraphQL + realtime:** Hot Chocolate (queries + subscriptions/Redis), Realtime-споживач + inline-аларми → Redis → WebTier.
 - **Phase 3 — Дашборд:** React з усіма 4 віджетами.
 - **Phase 4 — Хмара (пізніше):** Azure free-tier (3 Container Apps + SWA + Neon + CloudAMQP + EMQX Serverless + Redis Cloud) + GitHub Actions.
@@ -395,7 +395,7 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 | 5 | Обладнання | Кілька типів (mixed) |
 | 6 | MQTT-брокер | EMQX |
 | 7 | Payload | JSON |
-| 8 | «Обладнання» | Окремий .NET Worker (Simulator) |
+| 8 | «Обладнання» | Окремий .NET Worker (Devices) |
 | 9 | MQTT-фічі | LWT + QoS 1 + retained + MQTT5 |
 | 10 | RabbitMQ exchange | Topic |
 | 11 | Споживачі | Persistence + Realtime (аларми inline) |
@@ -410,7 +410,7 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 | 20 | UI-kit | react-bootstrap + react-icons |
 | 21 | Дашборд-віджети | Телеметрія + MQTT-статус + RabbitMQ + GraphQL-інспектор |
 | 22 | Міграції | **EF Core migrations** |
-| 23 | Топологія | **3 юніти (WebTier / WorkerTier / Simulator)** |
+| 23 | Топологія | **3 юніти (WebTier / WorkerTier / Devices)** |
 | 24 | CI/CD | Поки без Actions |
 | 25 | Назва | **Oleumetry** |
 | 26 | Backplane | **Redis** (Redis Cloud free / Upstash; не Azure Cache) |

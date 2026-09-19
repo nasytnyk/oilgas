@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-Oleumetry.Simulator-e5812423-6665-4319-9b9e-f8ccbf05bb9d</UserSecretsId>
+    <UserSecretsId>dotnet-Oleumetry.Devices-e5812423-6665-4319-9b9e-f8ccbf05bb9d</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

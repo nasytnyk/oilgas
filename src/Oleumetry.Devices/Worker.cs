@@ -1,4 +1,4 @@
-namespace Oleumetry.Simulator;
+namespace Oleumetry.Devices;
 
 public class Worker(ILogger<Worker> logger) : BackgroundService
 {

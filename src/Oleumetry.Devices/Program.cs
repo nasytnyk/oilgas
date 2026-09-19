@@ -1,4 +1,4 @@
-using Oleumetry.Simulator;
+using Oleumetry.Devices;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddHostedService<Worker>();
