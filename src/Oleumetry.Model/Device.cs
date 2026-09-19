@@ -4,8 +4,8 @@ namespace Oleumetry.Model;
 public class Device
 {
     public string Id { get; set; } = "";
-    public int AssetId { get; set; }
-    public Asset? Asset { get; set; }              // навігація
+    public int MineId { get; set; }
+    public Mine? Mine { get; set; }                // навігація
 
     public DeviceType Type { get; set; }
     public string Name { get; set; } = "";

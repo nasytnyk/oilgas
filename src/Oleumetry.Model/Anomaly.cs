@@ -1,7 +1,7 @@
 namespace Oleumetry.Model;
 
-/// <summary>Аларм — факт порушення порогу. У v1 незмінний (без квитування).</summary>
-public class Alarm
+/// <summary>Аномалія — факт порушення межі (Boundary). У v1 незмінна (без квитування).</summary>
+public class Anomaly
 {
     public long Id { get; set; }
     public string DeviceId { get; set; } = "";

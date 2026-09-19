@@ -1,7 +1,7 @@
 namespace Oleumetry.Model;
 
-/// <summary>Один вимір телеметрії (факт). Пишеться потоком, читається для графіків/історії.</summary>
-public class Reading
+/// <summary>Один вимір телеметрії (тик). Пишеться потоком, читається для графіків/історії.</summary>
+public class Tick
 {
     public long Id { get; set; }
     public string DeviceId { get; set; } = "";

@@ -1,10 +1,10 @@
 namespace Oleumetry.Model;
 
 /// <summary>
-/// Пороги для метрики певного типу обладнання (реф-дані в БД).
-/// Межі nullable: null = немає порогу з цього боку (односторонній аларм).
+/// Межі для метрики певного типу обладнання (реф-дані в БД).
+/// null з боку = немає межі з цього боку (односторонній аларм).
 /// </summary>
-public class MetricThreshold
+public class Boundary
 {
     public int Id { get; set; }
     public DeviceType DeviceType { get; set; }

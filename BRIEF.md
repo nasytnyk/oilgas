@@ -65,7 +65,7 @@ flowchart LR
     subgraph WORKER["Oleumetry.WorkerTier (worker-tier)"]
         ING["Ingestion Gateway"]
         PC["Persistence Consumer"]
-        RC["Realtime Consumer<br/>+ inline alarm-eval"]
+        RC["Realtime Consumer<br/>+ inline anomaly-eval"]
     end
     RMQ["RabbitMQ<br/>topic exchange"]
     REDIS["Redis<br/>(pub/sub backplane)"]
@@ -81,7 +81,7 @@ flowchart LR
     RMQ -- "q.persistence" --> PC
     RMQ -- "q.realtime" --> RC
     PC -- "EF Core (batched)" --> PG
-    RC -- "write alarms (EF)" --> PG
+    RC -- "write anomalies (EF)" --> PG
     RC -- "ITopicEventSender" --> REDIS
     REDIS -- "subscription events" --> GQL
     GQL -- "queries (EF Core)" --> PG
@@ -97,7 +97,7 @@ flowchart LR
 ## 4. Домен і дані
 
 ### 4.1 Модель (мінімальна)
-`Asset → Device → Reading → Alarm`. Різнотипне обладнання — через `Device.type` + узагальнена метрика (`metric + value + unit`), без окремих таблиць на тип.
+`Mine → Device → Tick → Anomaly`. Різнотипне обладнання — через `Device.type` + узагальнена метрика (`metric + value + unit`), без окремих таблиць на тип.
 
 ### 4.2 Типи обладнання та метрики (mixed)
 | Тип (`device.type`) | Метрики |
@@ -108,10 +108,10 @@ flowchart LR
 | `COMPRESSOR` | suction_pressure (bar), discharge_pressure (bar), temperature (°C), rpm, vibration (mm/s) |
 
 ### 4.3 Схема БД (ескіз)
-> Створюється **міграціями EF Core**; партиційований `readings` — через `migrationBuilder.Sql(...)` (EF не виражає `PARTITION BY` декларативно). `assets/devices/alarms` — звичайні EF-сутності.
+> Створюється **міграціями EF Core**; партиційований `ticks` — через `migrationBuilder.Sql(...)` (EF не виражає `PARTITION BY` декларативно). `mines/devices/anomalies` — звичайні EF-сутності.
 
 ```sql
-CREATE TABLE assets (
+CREATE TABLE mines (
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name       text NOT NULL,
   field      text NOT NULL,
@@ -122,7 +122,7 @@ CREATE TABLE assets (
 
 CREATE TABLE devices (
   id         text PRIMARY KEY,             -- напр. 'esp-001'
-  asset_id   bigint NOT NULL REFERENCES assets(id),
+  mine_id   bigint NOT NULL REFERENCES mines(id),
   type       text NOT NULL,                -- ESP_PUMP | WELLHEAD | SEPARATOR | COMPRESSOR
   name       text NOT NULL,
   serial     text,
@@ -130,7 +130,7 @@ CREATE TABLE devices (
 );
 
 -- партиційована по часу; PK мусить містити ключ партиції (ts)
-CREATE TABLE readings (
+CREATE TABLE ticks (
   device_id text NOT NULL,
   metric    text NOT NULL,
   value     double precision NOT NULL,
@@ -139,11 +139,11 @@ CREATE TABLE readings (
   PRIMARY KEY (device_id, metric, ts)
 ) PARTITION BY RANGE (ts);
 
-CREATE TABLE readings_2026_09_19 PARTITION OF readings
+CREATE TABLE ticks_2026_09_19 PARTITION OF ticks
   FOR VALUES FROM ('2026-09-19') TO ('2026-09-20');
-CREATE INDEX ON readings (device_id, ts DESC);
+CREATE INDEX ON ticks (device_id, ts DESC);
 
-CREATE TABLE alarms (
+CREATE TABLE anomalies (
   id        bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   device_id text NOT NULL,
   metric    text NOT NULL,
@@ -157,11 +157,11 @@ CREATE TABLE alarms (
 
 ### 4.4 Партиції та ретенція
 - Партиції — **по добі** (`RANGE(ts)`). Фоновий job у **WorkerTier** (`PartitionMaintenance`) попередньо створює партиції на майбутнє.
-- **Ретенції немає** — контролюємо об'єм через обмеження темпу симулятора. За потреби ретенція додається одним `DROP TABLE readings_<date>`.
+- **Ретенції немає** — контролюємо об'єм через обмеження темпу симулятора. За потреби ретенція додається одним `DROP TABLE ticks_<date>`.
 
 ### 4.5 Пороги алармів
 - v1: пороги задаються в `appsettings` (per deviceType + metric).
-- Realtime-споживач оцінює значення **inline**; при виході за поріг пише в `alarms` і емітить подію в UI.
+- Realtime-споживач оцінює значення **inline**; при виході за поріг пише в `anomalies` і емітить подію в UI.
 
 ### 4.6 Доступ до даних (EF Core)
 - **Читання/GraphQL:** EF Core `IQueryable` + Hot Chocolate `[UseProjection]/[UseFiltering]/[UseSorting]/[UsePaging]` — мінімум коду.
@@ -224,7 +224,7 @@ Payload статусу (retained + LWT): `{ "deviceId": "esp-001", "status": "on
 - **Routing key:** `telemetry.{deviceType}` (напр. `telemetry.ESP_PUMP`).
 - **Queues:**
   - `q.persistence` — binding `telemetry.#` → Persistence Consumer
-  - `q.realtime`    — binding `telemetry.#` → Realtime Consumer (+ inline alarm-eval)
+  - `q.realtime`    — binding `telemetry.#` → Realtime Consumer (+ inline anomaly-eval)
 - **Dead-lettering:** DLX `oleumetry.dlx` → `q.dlq` (через `x-dead-letter-exchange` на робочих чергах).
 
 ### 6.2 Ролі (fan-out)
@@ -248,12 +248,12 @@ Payload статусу (retained + LWT): `{ "deviceId": "esp-001", "status": "on
 ### 7.1 Queries (ескіз)
 ```graphql
 type Query {
-  assets: [Asset!]!
-  devices(assetId: ID, type: DeviceType): [Device!]!
-  latestReadings(deviceId: ID!): [Reading!]!
-  readings(deviceId: ID!, metric: String, from: DateTime, to: DateTime,
-           first: Int, after: String): ReadingConnection!   # cursor-пагінація (HC UsePaging)
-  alarms(status: String, deviceId: ID, from: DateTime, to: DateTime): [Alarm!]!
+  mines: [Mine!]!
+  devices(mineId: ID, type: DeviceType): [Device!]!
+  latestTicks(deviceId: ID!): [Tick!]!
+  ticks(deviceId: ID!, metric: String, from: DateTime, to: DateTime,
+           first: Int, after: String): TickConnection!   # cursor-пагінація (HC UsePaging)
+  anomalies(status: String, deviceId: ID, from: DateTime, to: DateTime): [Anomaly!]!
   infra: InfraStatus!   # дані з RabbitMQ Management API + EMQX API
 }
 ```
@@ -261,8 +261,8 @@ type Query {
 ### 7.2 Subscriptions
 ```graphql
 type Subscription {
-  onReading(deviceId: ID): Reading!
-  onAlarm: Alarm!
+  onTick(deviceId: ID): Tick!
+  onAnomaly: Anomaly!
   onDeviceStatus: DeviceStatus!
 }
 ```
@@ -287,11 +287,11 @@ type Subscription {
 ### 8.1 Дашборд — панелі «під капотом»
 | Віджет | Джерело даних |
 |---|---|
-| **Живі графіки телеметрії** | GraphQL subscription `onReading` (Recharts) |
+| **Живі графіки телеметрії** | GraphQL subscription `onTick` (Recharts) |
 | **MQTT-статус пристроїв** | GraphQL subscription `onDeviceStatus` (LWT/retained) |
 | **Черга RabbitMQ** (глибина, DLQ, rate) | polled query `infra.rabbit` |
 | **GraphQL-інспектор дроту** | кастомний Apollo-link, що логує операції та WS-кадри з таймінгами |
-| Список алармів (read-only) | subscription `onAlarm` + query `alarms` |
+| Список алармів (read-only) | subscription `onAnomaly` + query `anomalies` |
 | Огляд поля (пристрої + статуси) | query `devices` + статус-підписки |
 
 ---
@@ -303,7 +303,7 @@ oleumetry/
 ├─ Oleumetry.slnx
 ├─ src/
 │  ├─ Oleumetry.Model/         # прості POCO-сутності:
-│  │                            #   Asset, Device, Reading, Alarm, MetricThreshold + enums
+│  │                            #   Mine, Device, Tick, Anomaly, Boundary + enums
 │  │                            #   залежностей — НУЛЬ
 │  ├─ Oleumetry.UseCases/     # тонкий шар сервісів (оцінка порогів, оркестрація)
 │  │                            #   → Model
@@ -333,7 +333,7 @@ Contracts ── shared kernel, ні від кого не залежить; ви
 ```
 - Стрілки дивляться **всередину, до Model**; Model — прості POCO, не знає про EF/MQTT/Rabbit.
 - **Без DDD:** логіка (оцінка порогів алармів) — у простому сервісі в UseCases, а не на сутностях.
-- `Reading` — append-only факт; `MetricThreshold` — реф-дані порогів у БД.
+- `Tick` — append-only факт; `Boundary` — реф-дані порогів у БД.
 - 3 хости = 3 деплой-юніти; 7 бібліотек їх обслуговують (Model, UseCases, Contracts + 4 адаптери за системою).
 ```
 
@@ -388,7 +388,7 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 
 | # | Рішення | Вибір |
 |---|---|---|
-| 1 | Доменна модель | Мінімальна (Asset→Device→Reading→Alarm) |
+| 1 | Доменна модель | Мінімальна (Mine→Device→Tick→Anomaly) |
 | 2 | Зберігання телеметрії | Таблиця + нативні партиції по часу |
 | 3 | Хмарний Postgres | Neon (Azure-native) |
 | 4 | Ретенція | Нема, лише ліміт темпу |
