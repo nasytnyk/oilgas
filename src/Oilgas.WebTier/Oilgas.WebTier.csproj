@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Oilgas.UseCases\Oilgas.UseCases.csproj" />
+    <ProjectReference Include="..\Oilgas.Postgres\Oilgas.Postgres.csproj" />
+    <ProjectReference Include="..\Oilgas.RabbitMq\Oilgas.RabbitMq.csproj" />
+    <ProjectReference Include="..\Oilgas.Redis\Oilgas.Redis.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

@@ -1,4 +1,4 @@
-# Azure Init — покрокова ініціалізація деплою Oleumetry
+# Azure Init — покрокова ініціалізація деплою Oilgas
 
 Runbook, що піднімає інфраструктуру для деплою `WebTier` у **Azure Container Apps** через **GitHub Actions (OIDC)**.
 Кожен крок — команда + пояснення *навіщо*. Можна виконати повторно з нуля.
@@ -18,18 +18,18 @@ Runbook, що піднімає інфраструктуру для деплою 
 
 ## Змінні (для команд нижче)
 ```bash
-RG=oleumetry-rg
+RG=oilgas-rg
 LOCATION=westeurope
-ENV=oleumetry-env
-APP=oleumetry-webtier
-GH_REPO=nasytnyk/oleumetry
-APP_REG=oleumetry-github          # Entra ID app для OIDC
+ENV=oilgas-env
+APP=oilgas-webtier
+GH_REPO=nasytnyk/oilgas
+APP_REG=oilgas-github          # Entra ID app для OIDC
 ```
 
 ---
 
 ## Крок 1 — Resource group
-**Що це:** логічний контейнер для всіх ресурсів проекту. Дає одну точку керування і видалення (`az group delete -n oleumetry-rg` знесе все разом).
+**Що це:** логічний контейнер для всіх ресурсів проекту. Дає одну точку керування і видалення (`az group delete -n oilgas-rg` знесе все разом).
 
 ```bash
 az group create --name $RG --location $LOCATION
@@ -56,7 +56,7 @@ az containerapp env create --name $ENV --resource-group $RG --location $LOCATION
 
 **Навіщо:** застосунок `WebTier` деплоїться *в* environment. Реєстрація провайдерів (`Microsoft.App` — Container Apps; `Microsoft.OperationalInsights` — логи) потрібна раз на підписку.
 
-**Результат:** environment `oleumetry-env` — стан `Succeeded`; отримує публічний домен виду `<random>.westeurope.azurecontainerapps.io`, під яким будуть доступні застосунки.
+**Результат:** environment `oilgas-env` — стан `Succeeded`; отримує публічний домен виду `<random>.westeurope.azurecontainerapps.io`, під яким будуть доступні застосунки.
 
 ---
 
@@ -65,7 +65,7 @@ az containerapp env create --name $ENV --resource-group $RG --location $LOCATION
 
 ```bash
 # 3a. App registration в Entra ID
-APP_ID=$(az ad app create --display-name oleumetry-github --query appId -o tsv)
+APP_ID=$(az ad app create --display-name oilgas-github --query appId -o tsv)
 
 # 3b. Service principal для цього app
 az ad sp create --id "$APP_ID"
@@ -73,35 +73,35 @@ az ad sp create --id "$APP_ID"
 # 3c. Роль Contributor, обмежена ОДНІЄЮ resource group (least privilege)
 SUB_ID=$(az account show --query id -o tsv)
 az role assignment create --assignee "$APP_ID" --role Contributor \
-  --scope "/subscriptions/$SUB_ID/resourceGroups/oleumetry-rg"
+  --scope "/subscriptions/$SUB_ID/resourceGroups/oilgas-rg"
 
 # 3d. Federated credential: довіра до workflow саме з нашого репо+гілки
 az ad app federated-credential create --id "$APP_ID" --parameters '{
   "name":"github-main",
   "issuer":"https://token.actions.githubusercontent.com",
-  "subject":"repo:nasytnyk/oleumetry:ref:refs/heads/main",
+  "subject":"repo:nasytnyk/oilgas:ref:refs/heads/main",
   "audiences":["api://AzureADTokenExchange"]
 }'
 
 # 3e. Кладемо ID у GitHub Secrets (це ідентифікатори, не паролі)
-gh secret set AZURE_CLIENT_ID       -b "$APP_ID" -R nasytnyk/oleumetry
-gh secret set AZURE_TENANT_ID       -b "$(az account show --query tenantId -o tsv)" -R nasytnyk/oleumetry
-gh secret set AZURE_SUBSCRIPTION_ID -b "$SUB_ID" -R nasytnyk/oleumetry
+gh secret set AZURE_CLIENT_ID       -b "$APP_ID" -R nasytnyk/oilgas
+gh secret set AZURE_TENANT_ID       -b "$(az account show --query tenantId -o tsv)" -R nasytnyk/oilgas
+gh secret set AZURE_SUBSCRIPTION_ID -b "$SUB_ID" -R nasytnyk/oilgas
 ```
 
-**Навіщо:** `subject` прив'язує довіру саме до `nasytnyk/oleumetry` + `main` — OIDC-токен з іншого репо/гілки не підійде. У workflow `azure/login` обміняє OIDC-токен на короткоживучий Azure-токен — **жодного пароля в GitHub**.
+**Навіщо:** `subject` прив'язує довіру саме до `nasytnyk/oilgas` + `main` — OIDC-токен з іншого репо/гілки не підійде. У workflow `azure/login` обміняє OIDC-токен на короткоживучий Azure-токен — **жодного пароля в GitHub**.
 
-**Результат:** app `oleumetry-github` + SP + Contributor на `oleumetry-rg` + federated credential (`main`); секрети `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` у репо.
+**Результат:** app `oilgas-github` + SP + Contributor на `oilgas-rg` + federated credential (`main`); секрети `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` у репо.
 
 > **⚠️ Нюанс OIDC-subject (`AADSTS700213`).** Цей акаунт віддає OIDC-`subject` у формі **ID**, а не логінів:
 > `repo:<owner_login>@<owner_id>/<repo>@<repo_id>:ref:refs/heads/main`.
 > Якщо `azure/login` падає з `No matching federated identity record found` — подивись пред'явлений subject у логах і додай federated credential саме з ним:
 > ```bash
-> gh api repos/nasytnyk/oleumetry --jq '{owner_id:.owner.id, repo_id:.id}'   # взяти ID
+> gh api repos/nasytnyk/oilgas --jq '{owner_id:.owner.id, repo_id:.id}'   # взяти ID
 > az ad app federated-credential create --id <AZURE_CLIENT_ID> --parameters '{
 >   "name":"github-main-idform",
 >   "issuer":"https://token.actions.githubusercontent.com",
->   "subject":"repo:nasytnyk@<owner_id>/oleumetry@<repo_id>:ref:refs/heads/main",
+>   "subject":"repo:nasytnyk@<owner_id>/oilgas@<repo_id>:ref:refs/heads/main",
 >   "audiences":["api://AzureADTokenExchange"]
 > }'
 > ```
@@ -112,7 +112,7 @@ gh secret set AZURE_SUBSCRIPTION_ID -b "$SUB_ID" -R nasytnyk/oleumetry
 ## Крок 4 — Dockerfile для WebTier
 **Що це:** інструкція збірки образу. Багатоетапна: етап `build` (повний SDK) компілює й `publish`-ить; етап `runtime` (легкий `aspnet`-образ) містить лише готовий застосунок — менший і безпечніший.
 
-- Файл: `src/Oleumetry.WebTier/Dockerfile`. Контекст збірки — **корінь репозиторію** (щоб бачити `global.json` і граф проектів).
+- Файл: `src/Oilgas.WebTier/Dockerfile`. Контекст збірки — **корінь репозиторію** (щоб бачити `global.json` і граф проектів).
 - Порт **8080** (ASP.NET у контейнері за замовчуванням слухає 8080; Container Apps проксить на нього).
 - `.dockerignore` у корені виключає `bin/`, `obj/`, `.git/` з контексту.
 
@@ -126,20 +126,20 @@ gh secret set AZURE_SUBSCRIPTION_ID -b "$SUB_ID" -R nasytnyk/oleumetry
 ---
 
 ## Крок 6 — Перший деплой Container App
-**6a (одноразово, вручну):** зробити GHCR-пакет `oleumetry-webtier` **public**:
-GitHub → профіль → Packages → `oleumetry-webtier` → Package settings → Danger Zone → *Change visibility* → **Public**.
+**6a (одноразово, вручну):** зробити GHCR-пакет `oilgas-webtier` **public**:
+GitHub → профіль → Packages → `oilgas-webtier` → Package settings → Danger Zone → *Change visibility* → **Public**.
 Далі Container Apps тягне образ анонімно, без секретів.
 
 **6b:** створення застосунку з публічного образу:
 ```bash
 az containerapp create \
-  --name oleumetry-webtier \
-  --resource-group oleumetry-rg \
-  --environment oleumetry-env \
-  --image ghcr.io/nasytnyk/oleumetry-webtier:latest \
+  --name oilgas-webtier \
+  --resource-group oilgas-rg \
+  --environment oilgas-env \
+  --image ghcr.io/nasytnyk/oilgas-webtier:latest \
   --ingress external --target-port 8080
 ```
-**Результат:** застосунок доступний за `https://oleumetry-webtier.<env-domain>/` і повертає `Hello World!` (HTTP 200).
+**Результат:** застосунок доступний за `https://oilgas-webtier.<env-domain>/` і повертає `Hello World!` (HTTP 200).
 
 ---
 
@@ -153,7 +153,7 @@ az containerapp create \
 
 ## Знесення всього
 ```bash
-az group delete --name oleumetry-rg --yes --no-wait   # усі Azure-ресурси
+az group delete --name oilgas-rg --yes --no-wait   # усі Azure-ресурси
 # federated credential + app registration прибираються окремо:
 # az ad app delete --id <AZURE_CLIENT_ID>
 ```

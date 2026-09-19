@@ -7,7 +7,7 @@ on:
     paths:
       - 'src/**'
       - 'global.json'
-      - 'src/Oleumetry.WebTier/Dockerfile'
+      - 'src/Oilgas.WebTier/Dockerfile'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -17,7 +17,7 @@ permissions:
   packages: write           # пуш образу в GHCR
 
 env:
-  IMAGE: ghcr.io/nasytnyk/oleumetry-webtier
+  IMAGE: ghcr.io/nasytnyk/oilgas-webtier
 
 jobs:
   deploy:
@@ -36,7 +36,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: src/Oleumetry.WebTier/Dockerfile
+          file: src/Oilgas.WebTier/Dockerfile
           push: true
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
@@ -52,12 +52,12 @@ jobs:
       - name: Deploy to Container Apps
         run: |
           az extension add --name containerapp --upgrade --only-show-errors || true
-          if az containerapp show -n oleumetry-webtier -g oleumetry-rg -o none 2>/dev/null; then
-            az containerapp update -n oleumetry-webtier -g oleumetry-rg \
+          if az containerapp show -n oilgas-webtier -g oilgas-rg -o none 2>/dev/null; then
+            az containerapp update -n oilgas-webtier -g oilgas-rg \
               --image "$IMAGE:$GITHUB_SHA" --only-show-errors -o none
           else
-            az containerapp create -n oleumetry-webtier -g oleumetry-rg \
-              --environment oleumetry-env \
+            az containerapp create -n oilgas-webtier -g oilgas-rg \
+              --environment oilgas-env \
               --image "$IMAGE:$GITHUB_SHA" \
               --ingress external --target-port 8080 --only-show-errors -o none
           fi

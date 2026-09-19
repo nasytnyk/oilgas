@@ -1,8 +1,8 @@
-# Oleumetry — Бриф / Технічне завдання
+# Oilgas — Бриф / Технічне завдання
 
 > Навчальний демо-проект: телеметрія нафтогазового обладнання через MQTT → RabbitMQ → Postgres, з GraphQL API та React-дашбордом, який показує весь стек «під капотом».
 
-- **Назва:** Oleumetry (лат. *oleum* «нафта» + *telemetry*)
+- **Назва:** Oilgas (лат. *oleum* «нафта» + *telemetry*)
 - **Платформа:** .NET 10 (LTS), ASP.NET Core
 - **ОС розробки:** Ubuntu, VS Code
 - **Домен:** Oil & Gas (видобуток / підготовка)
@@ -60,16 +60,16 @@
 
 ```mermaid
 flowchart LR
-    SIM["Oleumetry.Devices<br/>(.NET Worker)<br/>N пристроїв"]
+    SIM["Oilgas.Devices<br/>(.NET Worker)<br/>N пристроїв"]
     BR["EMQX<br/>(MQTT 5 broker)"]
-    subgraph WORKER["Oleumetry.WorkerTier (worker-tier)"]
+    subgraph WORKER["Oilgas.WorkerTier (worker-tier)"]
         ING["Ingestion Gateway"]
         PC["Persistence Consumer"]
         RC["Realtime Consumer<br/>+ inline anomaly-eval"]
     end
     RMQ["RabbitMQ<br/>topic exchange"]
     REDIS["Redis<br/>(pub/sub backplane)"]
-    subgraph WEBTIER["Oleumetry.WebTier (web-tier)"]
+    subgraph WEBTIER["Oilgas.WebTier (web-tier)"]
         GQL["Hot Chocolate<br/>Queries + Subscriptions"]
     end
     PG[("PostgreSQL<br/>partitioned")]
@@ -167,8 +167,8 @@ CREATE TABLE anomalies (
 - **Читання/GraphQL:** EF Core `IQueryable` + Hot Chocolate `[UseProjection]/[UseFiltering]/[UseSorting]/[UsePaging]` — мінімум коду.
 - **Запис телеметрії:** повний EF Core (за рішенням), але **батчами** (`AddRange` + один `SaveChanges` на пачку), щоб зменшити round-trips.
 - **Скейл-нота:** для демки (обмежений темп) change-tracking не заважає; якщо потік виросте — гарячий insert легко замінити на bulk (`EFCore.BulkExtensions`/Npgsql `COPY`) без зміни read-моделі.
-- **Міграції:** EF Core, застосовуються **одним власником — `Oleumetry.WebTier` на старті** (`Migrate()`); WorkerTier толерує «схема ще не готова» через ретрай.
-- **DbContext** живе в `Oleumetry.Postgres` і використовується і в WebTier (читання), і в WorkerTier (запис).
+- **Міграції:** EF Core, застосовуються **одним власником — `Oilgas.WebTier` на старті** (`Migrate()`); WorkerTier толерує «схема ще не готова» через ретрай.
+- **DbContext** живе в `Oilgas.Postgres` і використовується і в WebTier (читання), і в WorkerTier (запис).
 
 ---
 
@@ -207,7 +207,7 @@ Payload статусу (retained + LWT): `{ "deviceId": "esp-001", "status": "on
 - **Retained** last-value на `status` (і, за бажанням, на останню телеметрію) → новий підписник одразу бачить стан.
 - **MQTT 5 user properties**: `schemaVersion`, `contentType=application/json`, `messageId`.
 
-### 5.4 Симулятор (`Oleumetry.Devices`)
+### 5.4 Симулятор (`Oilgas.Devices`)
 - Окремий **.NET Worker** (`BackgroundService`), імітує N пристроїв різних типів.
 - Конфіг: кількість пристроїв, інтервал публікації (темп), сценарії дрейфу/сплесків для алармів.
 - Керується через `appsettings`/env (не через GraphQL у v1).
@@ -220,12 +220,12 @@ Payload статусу (retained + LWT): `{ "deviceId": "esp-001", "status": "on
 - Локально: `5672` (amqp), `15672` (management UI).
 
 ### 6.1 Топологія
-- **Exchange:** `oleumetry.telemetry` (тип **topic**, durable).
+- **Exchange:** `oilgas.telemetry` (тип **topic**, durable).
 - **Routing key:** `telemetry.{deviceType}` (напр. `telemetry.ESP_PUMP`).
 - **Queues:**
   - `q.persistence` — binding `telemetry.#` → Persistence Consumer
   - `q.realtime`    — binding `telemetry.#` → Realtime Consumer (+ inline anomaly-eval)
-- **Dead-lettering:** DLX `oleumetry.dlx` → `q.dlq` (через `x-dead-letter-exchange` на робочих чергах).
+- **Dead-lettering:** DLX `oilgas.dlx` → `q.dlq` (через `x-dead-letter-exchange` на робочих чергах).
 
 ### 6.2 Ролі (fan-out)
 1. **Розв'язка + буфер** — ingest-темп ≠ швидкість запису в БД; сплески гасяться чергою.
@@ -299,27 +299,27 @@ type Subscription {
 ## 9. Структура рішення (пропозиція)
 
 ```
-oleumetry/
-├─ Oleumetry.slnx
+oilgas/
+├─ Oilgas.slnx
 ├─ src/
-│  ├─ Oleumetry.Model/         # прості POCO-сутності:
+│  ├─ Oilgas.Model/         # прості POCO-сутності:
 │  │                            #   Mine, Device, Tick, Anomaly, Boundary + enums
 │  │                            #   залежностей — НУЛЬ
-│  ├─ Oleumetry.UseCases/     # тонкий шар сервісів (оцінка порогів, оркестрація)
+│  ├─ Oilgas.UseCases/     # тонкий шар сервісів (оцінка порогів, оркестрація)
 │  │                            #   → Model
-│  ├─ Oleumetry.Postgres/ # адаптер PostgreSQL: DbContext, репозиторії, міграції
+│  ├─ Oilgas.Postgres/ # адаптер PostgreSQL: DbContext, репозиторії, міграції
 │  │                            #   → UseCases (+ Model транзитивно)
-│  ├─ Oleumetry.RabbitMq/ # адаптер RabbitMQ: publisher/consumers/DLQ + Mgmt API → UseCases, Contracts
-│  ├─ Oleumetry.Emqx/ # адаптер EMQX: MQTTnet-інгест + status API → UseCases, Contracts
-│  ├─ Oleumetry.Redis/ # адаптер Redis: backplane підписок → UseCases, Contracts
-│  ├─ Oleumetry.Contracts/      # чисті wire-DTO (MQTT payload, інтеграційні події)
+│  ├─ Oilgas.RabbitMq/ # адаптер RabbitMQ: publisher/consumers/DLQ + Mgmt API → UseCases, Contracts
+│  ├─ Oilgas.Emqx/ # адаптер EMQX: MQTTnet-інгест + status API → UseCases, Contracts
+│  ├─ Oilgas.Redis/ # адаптер Redis: backplane підписок → UseCases, Contracts
+│  ├─ Oilgas.Contracts/      # чисті wire-DTO (MQTT payload, інтеграційні події)
 │  │                            #   shared kernel, залежностей — НУЛЬ
-│  ├─ Oleumetry.WebTier/            # host (web-tier): Hot Chocolate
+│  ├─ Oilgas.WebTier/            # host (web-tier): Hot Chocolate
 │  │                            #   застосовує EF-міграції на старті. → UseCases, Postgres, RabbitMq, Redis
-│  ├─ Oleumetry.WorkerTier/      # host (worker-tier): BackgroundServices
+│  ├─ Oilgas.WorkerTier/      # host (worker-tier): BackgroundServices
 │  │                            #   Ingestion / Persistence / Realtime / PartitionMaintenance
 │  │                            #   → UseCases, Postgres, RabbitMq, Emqx, Redis, Contracts
-│  └─ Oleumetry.Devices/      # host: .NET Worker → MQTT. → ТІЛЬКИ Contracts
+│  └─ Oilgas.Devices/      # host: .NET Worker → MQTT. → ТІЛЬКИ Contracts
 ├─ web/                         # Vite + React + TS (Apollo, react-bootstrap)
 ├─ deploy/
 │  └─ docker-compose.yml        # emqx + rabbitmq + postgres + redis
@@ -350,7 +350,7 @@ Contracts ── shared kernel, ні від кого не залежить; ви
 | PostgreSQL | 5432 |
 | Redis | 6379 |
 
-Далі: `dotnet run` для `Oleumetry.WebTier`, `Oleumetry.WorkerTier` та `Oleumetry.Devices`, `npm run dev` для `web/` (Vite на `5173`).
+Далі: `dotnet run` для `Oilgas.WebTier`, `Oilgas.WorkerTier` та `Oilgas.Devices`, `npm run dev` для `web/` (Vite на `5173`).
 EF Core migrations застосовуються при старті WebTier (створює таблиці + початкові партиції); WorkerTier чекає готовності схеми.
 
 ---
@@ -376,7 +376,7 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 
 ## 12. Дорожня карта (фази)
 
-- **Phase 0 — Каркас:** solution (10 проектів: Model/UseCases/Contracts + Postgres/RabbitMq/Emqx/Redis + WebTier/WorkerTier/Devices), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Oleumetry.Postgres + перша міграція з партиціями.
+- **Phase 0 — Каркас:** solution (10 проектів: Model/UseCases/Contracts + Postgres/RabbitMq/Emqx/Redis + WebTier/WorkerTier/Devices), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Oilgas.Postgres + перша міграція з партиціями.
 - **Phase 1 — Backend-труба:** Devices → MQTT → WorkerTier(Ingestion) → RabbitMQ → WorkerTier(Persistence) → Postgres (EF).
 - **Phase 2 — GraphQL + realtime:** Hot Chocolate (queries + subscriptions/Redis), Realtime-споживач + inline-аларми → Redis → WebTier.
 - **Phase 3 — Дашборд:** React з усіма 4 віджетами.
@@ -412,8 +412,8 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 | 22 | Міграції | **EF Core migrations** |
 | 23 | Топологія | **3 юніти (WebTier / WorkerTier / Devices)** |
 | 24 | CI/CD | Поки без Actions |
-| 25 | Назва | **Oleumetry** |
+| 25 | Назва | **Oilgas** |
 | 26 | Backplane | **Redis** (Redis Cloud free / Upstash; не Azure Cache) |
 | 27 | Архітектура | Шарувата (без DDD): Model/UseCases/Contracts + адаптери за системою (Postgres/RabbitMq/Emqx/Redis) |
 | 28 | Розбивка адаптерів | Повна, за зовнішньою системою: кожен проект володіє всім спілкуванням зі своєю системою (дані + status/mgmt API) |
-| 29 | Без DDD (наївна модель) | Прості POCO у Oleumetry.Model; логіка в сервісах UseCases. Домен тонкий — DDD був церемонією |
+| 29 | Без DDD (наївна модель) | Прості POCO у Oilgas.Model; логіка в сервісах UseCases. Домен тонкий — DDD був церемонією |

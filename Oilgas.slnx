@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Oilgas.RabbitMq/Oilgas.RabbitMq.csproj" />
+    <Project Path="src/Oilgas.Redis/Oilgas.Redis.csproj" />
+    <Project Path="src/Oilgas.Hardware/Oilgas.Hardware.csproj" />
+    <Project Path="src/Oilgas.UseCases/Oilgas.UseCases.csproj" />
+    <Project Path="src/Oilgas.Contracts/Oilgas.Contracts.csproj" />
+    <Project Path="src/Oilgas.Emqx/Oilgas.Emqx.csproj" />
+    <Project Path="src/Oilgas.Model/Oilgas.Model.csproj" />
+    <Project Path="src/Oilgas.Postgres/Oilgas.Postgres.csproj" />
+    <Project Path="src/Oilgas.WebTier/Oilgas.WebTier.csproj" />
+    <Project Path="src/Oilgas.WorkerTier/Oilgas.WorkerTier.csproj" />
+  </Folder>
+</Solution>
