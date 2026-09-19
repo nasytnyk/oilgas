@@ -7,10 +7,10 @@ public sealed record MetricSpec(
     string Name, string Unit, double Baseline, double Noise, double SpikeChance, double SpikeDelta);
 
 /// <summary>
-/// Один емульований пристрій: генерує TelemetryMessage і знає свої MQTT-топіки.
-/// Чистий (без MQTT) — публікацією керує SimulatorWorker.
+/// Один пристрій-емулятор: генерує TelemetryMessage і знає свої MQTT-топіки.
+/// Чистий (без MQTT) — публікацією керує Worker.
 /// </summary>
-public sealed class SimulatedDevice(
+public sealed class Device(
     string id, string type, string field, string well, IReadOnlyList<MetricSpec> metrics)
 {
     public string Id { get; } = id;

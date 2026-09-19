@@ -3,7 +3,7 @@ namespace Oleumetry.Devices;
 /// <summary>Фіксований набір емульованих пристроїв різних типів (демо-«поле»).</summary>
 public static class DeviceRoster
 {
-    public static IReadOnlyList<SimulatedDevice> Build() =>
+    public static IReadOnlyList<Device> Build() =>
     [
         new("esp-001", "EspPump", "north", "w-12",
         [

@@ -6,16 +6,16 @@ using MQTTnet.Protocol;
 namespace Oleumetry.Devices;
 
 /// <summary>
-/// Фонова служба: тримає один MQTT-клієнт на кожен емульований пристрій
+/// Фонова служба: тримає один MQTT-клієнт на кожен пристрій
 /// (щоб LWT давав per-device offline), і циклічно публікує телеметрію в EMQX.
 /// </summary>
-public sealed class SimulatorWorker(
-    IOptions<SimulatorOptions> options,
-    ILogger<SimulatorWorker> logger) : BackgroundService
+public sealed class Worker(
+    IOptions<DeviceOptions> options,
+    ILogger<Worker> logger) : BackgroundService
 {
-    private readonly SimulatorOptions _opt = options.Value;
+    private readonly DeviceOptions _opt = options.Value;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private readonly List<(SimulatedDevice Device, IMqttClient Client)> _clients = [];
+    private readonly List<(Device Device, IMqttClient Client)> _clients = [];
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
@@ -30,7 +30,7 @@ public sealed class SimulatorWorker(
 
             var opts = new MqttClientOptionsBuilder()
                 .WithTcpServer(_opt.BrokerHost, _opt.BrokerPort)
-                .WithClientId($"oleumetry-sim-{device.Id}")
+                .WithClientId($"oleumetry-dev-{device.Id}")
                 .WithWillTopic(device.StatusTopic)
                 .WithWillPayload(will)
                 .WithWillRetain(true)
