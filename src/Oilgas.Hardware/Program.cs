@@ -11,10 +11,12 @@ var app = builder.Build();
 
 var telemetry = app.Services.GetRequiredService<TelemetrySwitch>();
 
-// HTTP-контроль потоку телеметрії (дефолт OFF)
-app.MapGet("/", () => "Oilgas Hardware — POST /start, POST /stop, GET /status");
+// API керування потоком телеметрії
 app.MapGet("/status", () => Results.Ok(new { on = telemetry.IsOn }));
 app.MapPost("/start", () => { telemetry.Start(); return Results.Ok(new { on = true }); });
 app.MapPost("/stop", () => { telemetry.Stop(); return Results.Ok(new { on = false }); });
+
+// веб-морда з кнопками
+app.MapGet("/", () => Results.Content(Ui.Page, "text/html; charset=utf-8"));
 
 app.Run();
