@@ -1,26 +1,18 @@
-name: Deploy WebTier
+name: Build images
 
-# Повний CD: на push у main збирає образ, пушить у GHCR і оновлює Container App.
+# Збирає й пушить образи Hardware + Mosquitto у GHCR на кожен push у main.
+# Деплой у Container Apps робимо через az (після того як пакети зроблено public).
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'src/**'
-      - 'global.json'
-      - 'src/Oilgas.WebTier/Dockerfile'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
-  id-token: write           # OIDC-логін у Azure (без паролів)
   contents: read
-  packages: write           # пуш образу в GHCR
-
-env:
-  IMAGE: ghcr.io/nasytnyk/oilgas-webtier
+  packages: write
 
 jobs:
-  deploy:
+  images:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -32,33 +24,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
+      - name: Build & push Hardware
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: src/Oilgas.WebTier/Dockerfile
+          file: src/Oilgas.Hardware/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE }}:${{ github.sha }}
-            ${{ env.IMAGE }}:latest
+            ghcr.io/nasytnyk/oilgas-hardware:${{ github.sha }}
+            ghcr.io/nasytnyk/oilgas-hardware:latest
 
-      - name: Azure login (OIDC)
-        uses: azure/login@v2
+      - name: Build & push Mosquitto
+        uses: docker/build-push-action@v6
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy to Container Apps
-        run: |
-          az extension add --name containerapp --upgrade --only-show-errors || true
-          if az containerapp show -n oilgas-webtier -g oilgas-rg -o none 2>/dev/null; then
-            az containerapp update -n oilgas-webtier -g oilgas-rg \
-              --image "$IMAGE:$GITHUB_SHA" --only-show-errors -o none
-          else
-            az containerapp create -n oilgas-webtier -g oilgas-rg \
-              --environment oilgas-env \
-              --image "$IMAGE:$GITHUB_SHA" \
-              --ingress external --target-port 8080 --only-show-errors -o none
-          fi
-          echo "Deployed $IMAGE:$GITHUB_SHA"
+          context: deploy/mosquitto
+          file: deploy/mosquitto/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/nasytnyk/oilgas-mosquitto:${{ github.sha }}
+            ghcr.io/nasytnyk/oilgas-mosquitto:latest
