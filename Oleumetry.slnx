@@ -1,8 +1,11 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Oleumetry.RabbitMq/Oleumetry.RabbitMq.csproj" />
+    <Project Path="src/Oleumetry.Redis/Oleumetry.Redis.csproj" />
     <Project Path="src/Oleumetry.UseCases/Oleumetry.UseCases.csproj" />
     <Project Path="src/Oleumetry.Contracts/Oleumetry.Contracts.csproj" />
     <Project Path="src/Oleumetry.Domain/Oleumetry.Domain.csproj" />
+    <Project Path="src/Oleumetry.Emqx/Oleumetry.Emqx.csproj" />
     <Project Path="src/Oleumetry.Postgres/Oleumetry.Postgres.csproj" />
   </Folder>
 </Solution>
