@@ -1,8 +1,9 @@
 name: Power
 
 # Кнопка «вимкнути / увімкнути» цілу RG (усі Container Apps).
-#   stop   -> az containerapp stop  (повна деалокація, $0, поки вимкнено)
-#   resume -> az containerapp start (підняти назад)
+#   stop   -> --min-replicas 0  (згортається до 0 реплік коли простоює -> компьют ~$0)
+#   resume -> --min-replicas 1  (тримає 1 репліку постійно)
+# (Підкоманд az containerapp stop/start немає у CLI на раннері, тому керуємо репліками.)
 # Запуск: вкладка Actions -> Power -> Run workflow -> обрати action.
 on:
   workflow_dispatch:
@@ -35,18 +36,19 @@ jobs:
       - name: ${{ inputs.action }} all Container Apps
         run: |
           az extension add --name containerapp --upgrade --only-show-errors || true
-          CMD=${{ inputs.action == 'resume' && 'start' || 'stop' }}
+          MIN=${{ inputs.action == 'resume' && '1' || '0' }}
 
           APPS=$(az containerapp list -g "$RG" --query "[].name" -o tsv)
           if [ -z "$APPS" ]; then echo "У RG $RG немає Container Apps."; exit 0; fi
 
           for app in $APPS; do
-            echo "::group::$CMD $app"
-            az containerapp "$CMD" -n "$app" -g "$RG" --only-show-errors -o none
-            echo "$app -> $CMD OK"
+            echo "::group::${{ inputs.action }} $app (min-replicas=$MIN)"
+            az containerapp update -n "$app" -g "$RG" \
+              --min-replicas "$MIN" --max-replicas 1 --only-show-errors -o none
+            echo "$app -> min-replicas=$MIN OK"
             echo "::endgroup::"
           done
 
           echo "=== Підсумок ==="
           az containerapp list -g "$RG" \
-            --query "[].{name:name, running:properties.runningStatus}" -o table
+            --query "[].{name:name, running:properties.runningStatus, minReplicas:properties.template.scale.minReplicas}" -o table
