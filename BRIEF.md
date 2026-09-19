@@ -168,7 +168,7 @@ CREATE TABLE alarms (
 - **Запис телеметрії:** повний EF Core (за рішенням), але **батчами** (`AddRange` + один `SaveChanges` на пачку), щоб зменшити round-trips.
 - **Скейл-нота:** для демки (обмежений темп) change-tracking не заважає; якщо потік виросте — гарячий insert легко замінити на bulk (`EFCore.BulkExtensions`/Npgsql `COPY`) без зміни read-моделі.
 - **Міграції:** EF Core, застосовуються **одним власником — `Oleumetry.WebTier` на старті** (`Migrate()`); WorkerTier толерує «схема ще не готова» через ретрай.
-- **DbContext** живе в `Oleumetry.Infrastructure` і використовується і в WebTier (читання), і в WorkerTier (запис).
+- **DbContext** живе в `Oleumetry.Postgres` і використовується і в WebTier (читання), і в WorkerTier (запис).
 
 ---
 
@@ -307,15 +307,18 @@ oleumetry/
 │  │                            #   залежностей — НУЛЬ
 │  ├─ Oleumetry.Application/     # use-cases + порти (інтерфейси репо/публікаторів)
 │  │                            #   → Domain
-│  ├─ Oleumetry.Infrastructure/ # адаптери: EF Core, MQTTnet, RabbitMQ.Client, Redis
-│  │                            #   реалізує порти. → Application, Domain, Contracts
+│  ├─ Oleumetry.Postgres/ # адаптер PostgreSQL: DbContext, репозиторії, міграції
+│  │                            #   → Application (+ Domain транзитивно)
+│  ├─ Oleumetry.RabbitMq/ # адаптер RabbitMQ: publisher/consumers/DLQ + Mgmt API → Application, Contracts
+│  ├─ Oleumetry.Emqx/ # адаптер EMQX: MQTTnet-інгест + status API → Application, Contracts
+│  ├─ Oleumetry.Redis/ # адаптер Redis: backplane підписок → Application, Contracts
 │  ├─ Oleumetry.Contracts/      # чисті wire-DTO (MQTT payload, інтеграційні події)
 │  │                            #   shared kernel, залежностей — НУЛЬ
 │  ├─ Oleumetry.WebTier/            # host (web-tier): Hot Chocolate
-│  │                            #   застосовує EF-міграції на старті. → Application, Infrastructure
+│  │                            #   застосовує EF-міграції на старті. → Application, Postgres, RabbitMq, Redis
 │  ├─ Oleumetry.WorkerTier/      # host (worker-tier): BackgroundServices
 │  │                            #   Ingestion / Persistence / Realtime / PartitionMaintenance
-│  │                            #   → Application, Infrastructure, Contracts
+│  │                            #   → Application, Postgres, RabbitMq, Emqx, Redis, Contracts
 │  └─ Oleumetry.Simulator/      # host: .NET Worker → MQTT. → ТІЛЬКИ Contracts
 ├─ web/                         # Vite + React + TS (Apollo, react-bootstrap)
 ├─ deploy/
@@ -325,13 +328,13 @@ oleumetry/
 
 ### 9.1 Правило залежностей (Clean Architecture)
 ```
-Domain ◄── Application ◄── Infrastructure ◄── Hosts (WebTier / WorkerTier / Simulator)
-Contracts ── shared kernel, ні від кого не залежить; використовують Infrastructure і Simulator
+Domain ◄── Application ◄── Adapters { Postgres · RabbitMq · Emqx · Redis } ◄── Hosts (WebTier / WorkerTier / Simulator)
+Contracts ── shared kernel, ні від кого не залежить; використовують адаптери і Simulator
 ```
 - Стрілки дивляться **всередину, до Domain**; Domain не знає про EF/MQTT/Rabbit.
 - **rich domain:** логіка (оцінка порогів алармів) — у Domain (метод сутності/VO або domain service), не в сервісах-обгортках.
 - **readings — факти поза агрегатами** (append-only, CQRS-стиль); агрегати лишаються для реєстру обладнання.
-- 3 хости = 3 деплой-юніти; 4 бібліотеки їх обслуговують.
+- 3 хости = 3 деплой-юніти; 7 бібліотек їх обслуговують (Domain, Application, Contracts + 4 адаптери за системою).
 ```
 
 ---
@@ -373,7 +376,7 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 
 ## 12. Дорожня карта (фази)
 
-- **Phase 0 — Каркас:** solution (7 проектів: Domain/Application/Infrastructure/Contracts + WebTier/WorkerTier/Simulator), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Infrastructure + перша міграція з партиціями.
+- **Phase 0 — Каркас:** solution (10 проектів: Domain/Application/Contracts + Postgres/RabbitMq/Emqx/Redis + WebTier/WorkerTier/Simulator), `docker-compose` (EMQX+RabbitMQ+Postgres+Redis), EF Core DbContext у Oleumetry.Postgres + перша міграція з партиціями.
 - **Phase 1 — Backend-труба:** Simulator → MQTT → WorkerTier(Ingestion) → RabbitMQ → WorkerTier(Persistence) → Postgres (EF).
 - **Phase 2 — GraphQL + realtime:** Hot Chocolate (queries + subscriptions/Redis), Realtime-споживач + inline-аларми → Redis → WebTier.
 - **Phase 3 — Дашборд:** React з усіма 4 віджетами.
@@ -411,4 +414,5 @@ GitHub Actions — **поки не робимо**; додамо окремим �
 | 24 | CI/CD | Поки без Actions |
 | 25 | Назва | **Oleumetry** |
 | 26 | Backplane | **Redis** (Redis Cloud free / Upstash; не Azure Cache) |
-| 27 | Архітектура | **Clean Architecture**: Domain/Application/Infrastructure/Contracts; rich domain; readings — факти поза агрегатами |
+| 27 | Архітектура | **Clean Architecture**: Domain/Application/Contracts + адаптери за системою (Postgres/RabbitMq/Emqx/Redis); rich domain; readings — факти поза агрегатами |
+| 28 | Розбивка адаптерів | Повна, за зовнішньою системою: кожен проект володіє всім спілкуванням зі своєю системою (дані + status/mgmt API) |
