@@ -93,6 +93,20 @@ gh secret set AZURE_SUBSCRIPTION_ID -b "$SUB_ID" -R nasytnyk/oleumetry
 
 **Результат:** app `oleumetry-github` + SP + Contributor на `oleumetry-rg` + federated credential (`main`); секрети `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` у репо.
 
+> **⚠️ Нюанс OIDC-subject (`AADSTS700213`).** Цей акаунт віддає OIDC-`subject` у формі **ID**, а не логінів:
+> `repo:<owner_login>@<owner_id>/<repo>@<repo_id>:ref:refs/heads/main`.
+> Якщо `azure/login` падає з `No matching federated identity record found` — подивись пред'явлений subject у логах і додай federated credential саме з ним:
+> ```bash
+> gh api repos/nasytnyk/oleumetry --jq '{owner_id:.owner.id, repo_id:.id}'   # взяти ID
+> az ad app federated-credential create --id <AZURE_CLIENT_ID> --parameters '{
+>   "name":"github-main-idform",
+>   "issuer":"https://token.actions.githubusercontent.com",
+>   "subject":"repo:nasytnyk@<owner_id>/oleumetry@<repo_id>:ref:refs/heads/main",
+>   "audiences":["api://AzureADTokenExchange"]
+> }'
+> ```
+> ID-форма навіть надійніша: переживає перейменування репо/власника.
+
 ---
 
 ## Крок 4 — Dockerfile для WebTier
