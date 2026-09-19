@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Oleumetry.Domain/Oleumetry.Domain.csproj" />
+  </Folder>
+</Solution>
