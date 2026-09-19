@@ -192,7 +192,7 @@ og/{field}/{well}/{deviceType}/{deviceId}/status      ← online/offline (retain
   "field": "north",
   "well": "w-12",
   "ts": "2026-09-19T10:15:00Z",
-  "metrics": [
+  "samples": [
     { "name": "intake_pressure", "value": 82.4, "unit": "bar" },
     { "name": "motor_temp",      "value": 96.1, "unit": "C" },
     { "name": "vibration",       "value": 3.2,  "unit": "mm/s" }
