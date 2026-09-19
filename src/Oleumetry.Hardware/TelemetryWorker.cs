@@ -8,6 +8,7 @@ namespace Oleumetry.Hardware;
 /// <summary>
 /// Фонова служба: конектить кожну одиницю обладнання окремим MQTT-клієнтом (LWT per-device),
 /// і публікує телеметрію ЛИШЕ коли TelemetrySwitch увімкнено. Дефолт OFF — не флудить.
+/// Конект стійкий до недоступного брокера (ретрай) — щоб HTTP-хост не крешився в хмарі.
 /// </summary>
 public sealed class TelemetryWorker(
     IOptions<HardwareOptions> options,
@@ -22,22 +23,10 @@ public sealed class TelemetryWorker(
     {
         var factory = new MqttClientFactory();
 
-        // конект усіх одиниць + LWT; початковий retained-статус offline (дефолт OFF)
         foreach (var unit in HardwareRoster.Build())
         {
-            var client = factory.CreateMqttClient();
-            var will = JsonSerializer.SerializeToUtf8Bytes(unit.BuildStatus("offline", DateTimeOffset.UtcNow), Json);
-
-            var opts = new MqttClientOptionsBuilder()
-                .WithTcpServer(_opt.BrokerHost, _opt.BrokerPort)
-                .WithClientId($"oleumetry-hw-{unit.Id}")
-                .WithWillTopic(unit.StatusTopic)
-                .WithWillPayload(will)
-                .WithWillRetain(true)
-                .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-                .Build();
-
-            await client.ConnectAsync(opts, ct);
+            var client = await ConnectAsync(factory, unit, ct);
+            if (client is null) continue;                       // не змогли — пропускаємо юніт
             await PublishAsync(client, unit.StatusTopic, unit.BuildStatus("offline", DateTimeOffset.UtcNow), retain: true, ct);
             _clients.Add((unit, client));
         }
@@ -50,7 +39,7 @@ public sealed class TelemetryWorker(
         {
             var on = telemetry.IsOn;
 
-            if (on != prevOn) // при перемиканні — оновлюємо retained-статус пристроїв
+            if (on != prevOn)
             {
                 var status = on ? "online" : "offline";
                 foreach (var (unit, client) in _clients)
@@ -70,6 +59,46 @@ public sealed class TelemetryWorker(
             try { await Task.Delay(period, ct); }
             catch (OperationCanceledException) { break; }
         }
+    }
+
+    private async Task<IMqttClient?> ConnectAsync(MqttClientFactory factory, HardwareUnit unit, CancellationToken ct)
+    {
+        var client = factory.CreateMqttClient();
+        var will = JsonSerializer.SerializeToUtf8Bytes(unit.BuildStatus("offline", DateTimeOffset.UtcNow), Json);
+
+        var builder = new MqttClientOptionsBuilder()
+            .WithTcpServer(_opt.BrokerHost, _opt.BrokerPort)
+            .WithClientId($"oleumetry-hw-{unit.Id}")
+            .WithWillTopic(unit.StatusTopic)
+            .WithWillPayload(will)
+            .WithWillRetain(true)
+            .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce);
+
+        if (_opt.UseTls)
+            builder.WithTlsOptions(o => o.UseTls(true));
+        if (!string.IsNullOrWhiteSpace(_opt.Username))
+            builder.WithCredentials(_opt.Username, _opt.Password ?? string.Empty);
+
+        var opts = builder.Build();
+
+        for (var attempt = 1; attempt <= 10 && !ct.IsCancellationRequested; attempt++)
+        {
+            try
+            {
+                await client.ConnectAsync(opts, ct);
+                return client;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("Connect {Unit} attempt {Attempt} failed: {Message}", unit.Id, attempt, ex.Message);
+                try { await Task.Delay(TimeSpan.FromSeconds(3), ct); }
+                catch (OperationCanceledException) { break; }
+            }
+        }
+
+        logger.LogError("Could not connect {Unit} — skipping", unit.Id);
+        client.Dispose();
+        return null;
     }
 
     private static async Task PublishAsync<T>(IMqttClient client, string topic, T payload, bool retain, CancellationToken ct)
