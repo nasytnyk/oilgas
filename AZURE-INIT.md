@@ -108,3 +108,38 @@ gh secret set AZURE_SUBSCRIPTION_ID -b "$SUB_ID" -R nasytnyk/oleumetry
 2. `docker/build-push-action` збирає образ і пушить теги `:<sha>` та `:latest`.
 
 **Навіщо `packages: write`:** право пушу образу в GHCR. **Чому тут ще нема деплою:** свіжий пакет GHCR приватний — крок деплою додамо після того, як зробимо його public (Крок 6).
+
+---
+
+## Крок 6 — Перший деплой Container App
+**6a (одноразово, вручну):** зробити GHCR-пакет `oleumetry-webtier` **public**:
+GitHub → профіль → Packages → `oleumetry-webtier` → Package settings → Danger Zone → *Change visibility* → **Public**.
+Далі Container Apps тягне образ анонімно, без секретів.
+
+**6b:** створення застосунку з публічного образу:
+```bash
+az containerapp create \
+  --name oleumetry-webtier \
+  --resource-group oleumetry-rg \
+  --environment oleumetry-env \
+  --image ghcr.io/nasytnyk/oleumetry-webtier:latest \
+  --ingress external --target-port 8080
+```
+**Результат:** застосунок доступний за `https://oleumetry-webtier.<env-domain>/` і повертає `Hello World!` (HTTP 200).
+
+---
+
+## Крок 7 — Замкнути CD (авто-деплой)
+Розширюємо `deploy.yml`: додаємо `id-token: write`, крок `azure/login` (OIDC) і крок деплою (`az containerapp update`, з fallback на `create`).
+Тепер **кожен push у `main`** сам: збирає образ → пушить у GHCR → оновлює Container App новою ревізією.
+
+**Навіщо `id-token: write`:** дозволяє workflow отримати OIDC-токен для `azure/login`. Пароля service principal немає — довіра через federated credential (Крок 3).
+
+---
+
+## Знесення всього
+```bash
+az group delete --name oleumetry-rg --yes --no-wait   # усі Azure-ресурси
+# federated credential + app registration прибираються окремо:
+# az ad app delete --id <AZURE_CLIENT_ID>
+```

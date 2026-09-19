@@ -1,7 +1,6 @@
 name: Deploy WebTier
 
-# Поки що: збирає образ WebTier і пушить у GHCR.
-# Крок деплою в Container Apps додамо після того, як пакет стане public.
+# Повний CD: на push у main збирає образ, пушить у GHCR і оновлює Container App.
 on:
   push:
     branches: [ main ]
@@ -10,17 +9,18 @@ on:
       - 'global.json'
       - 'src/Oleumetry.WebTier/Dockerfile'
       - '.github/workflows/deploy.yml'
-  workflow_dispatch:        # дозволяє запускати вручну з вкладки Actions
+  workflow_dispatch:
 
 permissions:
+  id-token: write           # OIDC-логін у Azure (без паролів)
   contents: read
-  packages: write           # право пушити образ у GHCR
+  packages: write           # пуш образу в GHCR
 
 env:
   IMAGE: ghcr.io/nasytnyk/oleumetry-webtier
 
 jobs:
-  build-and-push:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -30,7 +30,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}   # вбудований токен, живе лише під час запуску
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -41,3 +41,24 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:latest
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Container Apps
+        run: |
+          az extension add --name containerapp --upgrade --only-show-errors || true
+          if az containerapp show -n oleumetry-webtier -g oleumetry-rg -o none 2>/dev/null; then
+            az containerapp update -n oleumetry-webtier -g oleumetry-rg \
+              --image "$IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          else
+            az containerapp create -n oleumetry-webtier -g oleumetry-rg \
+              --environment oleumetry-env \
+              --image "$IMAGE:$GITHUB_SHA" \
+              --ingress external --target-port 8080 --only-show-errors -o none
+          fi
+          echo "Deployed $IMAGE:$GITHUB_SHA"
