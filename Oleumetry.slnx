@@ -1,6 +1,6 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Oleumetry.Application/Oleumetry.Application.csproj" />
+    <Project Path="src/Oleumetry.UseCases/Oleumetry.UseCases.csproj" />
     <Project Path="src/Oleumetry.Contracts/Oleumetry.Contracts.csproj" />
     <Project Path="src/Oleumetry.Domain/Oleumetry.Domain.csproj" />
     <Project Path="src/Oleumetry.Postgres/Oleumetry.Postgres.csproj" />

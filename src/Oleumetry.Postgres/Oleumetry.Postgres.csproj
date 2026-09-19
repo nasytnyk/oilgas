@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Oleumetry.Application\Oleumetry.Application.csproj" />
+    <ProjectReference Include="..\Oleumetry.UseCases\Oleumetry.UseCases.csproj" />
   </ItemGroup>
 
   <ItemGroup>
