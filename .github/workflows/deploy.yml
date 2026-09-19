@@ -1,18 +1,26 @@
-name: Build images
+name: Deploy
 
-# Збирає й пушить образи Hardware + Mosquitto у GHCR на кожен push у main.
-# Деплой у Container Apps робимо через az (після того як пакети зроблено public).
+# Повний CD під поточну ситуацію:
+#   build Hardware + Mosquitto -> GHCR -> OIDC-логін -> деплой у Container Apps (oilgas-rg).
+# Mosquitto — internal TCP-брокер; Hardware конектиться до нього ЗА ІМЕНЕМ (oilgas-mosquitto).
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
 permissions:
+  id-token: write        # OIDC-логін у Azure
   contents: read
-  packages: write
+  packages: write        # пуш образів у GHCR
+
+env:
+  HW_IMAGE: ghcr.io/nasytnyk/oilgas-hardware
+  MQ_IMAGE: ghcr.io/nasytnyk/oilgas-mosquitto
+  RG: oilgas-rg
+  ENV_NAME: oilgas-env
 
 jobs:
-  images:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -31,8 +39,8 @@ jobs:
           file: src/Oilgas.Hardware/Dockerfile
           push: true
           tags: |
-            ghcr.io/nasytnyk/oilgas-hardware:${{ github.sha }}
-            ghcr.io/nasytnyk/oilgas-hardware:latest
+            ${{ env.HW_IMAGE }}:${{ github.sha }}
+            ${{ env.HW_IMAGE }}:latest
 
       - name: Build & push Mosquitto
         uses: docker/build-push-action@v6
@@ -41,5 +49,41 @@ jobs:
           file: deploy/mosquitto/Dockerfile
           push: true
           tags: |
-            ghcr.io/nasytnyk/oilgas-mosquitto:${{ github.sha }}
-            ghcr.io/nasytnyk/oilgas-mosquitto:latest
+            ${{ env.MQ_IMAGE }}:${{ github.sha }}
+            ${{ env.MQ_IMAGE }}:latest
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Mosquitto (internal TCP broker)
+        run: |
+          az extension add --name containerapp --upgrade --only-show-errors || true
+          if az containerapp show -n oilgas-mosquitto -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-mosquitto -g "$RG" \
+              --image "$MQ_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          else
+            az containerapp create -n oilgas-mosquitto -g "$RG" --environment "$ENV_NAME" \
+              --image "$MQ_IMAGE:$GITHUB_SHA" \
+              --ingress internal --transport tcp --target-port 1883 --exposed-port 1883 \
+              --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi --only-show-errors -o none
+          fi
+
+      - name: Deploy Hardware (external web UI + simulator)
+        run: |
+          if az containerapp show -n oilgas-hardware -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-hardware -g "$RG" \
+              --image "$HW_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          else
+            # ВАЖЛИВО: BrokerHost = ІМ'Я застосунку Mosquitto (internal TCP доступний за іменем, не FQDN)
+            az containerapp create -n oilgas-hardware -g "$RG" --environment "$ENV_NAME" \
+              --image "$HW_IMAGE:$GITHUB_SHA" \
+              --ingress external --target-port 8080 \
+              --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
+              --env-vars "Hardware__BrokerHost=oilgas-mosquitto" "Hardware__BrokerPort=1883" "Hardware__IntervalSeconds=5" \
+              --only-show-errors -o none
+          fi
+          echo "Hardware URL: https://$(az containerapp show -n oilgas-hardware -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"

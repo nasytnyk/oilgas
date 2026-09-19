@@ -1,159 +1,72 @@
-# Azure Init — покрокова ініціалізація деплою Oilgas
+# Azure Init — деплой Oilgas (Mosquitto + Hardware)
 
-Runbook, що піднімає інфраструктуру для деплою `WebTier` у **Azure Container Apps** через **GitHub Actions (OIDC)**.
-Кожен крок — команда + пояснення *навіщо*. Можна виконати повторно з нуля.
+Runbook під **поточну** ситуацію: self-hosted **Mosquitto** (брокер) + **Hardware** (симулятор із веб-мордою on/off) у **Azure Container Apps**, збірка/деплой через **GitHub Actions (OIDC + GHCR)**.
 
-> ⚠️ Реальні ID (subscription / tenant / client) сюди **не записуються** — репозиторій публічний.
-> Вони живуть лише в GitHub Secrets. Тут скрізь плейсхолдери.
+> ⚠️ Реальні ID (subscription/tenant/client) сюди не пишемо — репо публічне. Вони в GitHub Secrets.
 
-## Зафіксовані рішення
-- Регіон: **West Europe**
-- Реєстр образів: **GHCR** (публічні образи — репо публічне, тягнуться без кредів)
-- Автентифікація GitHub→Azure: **OIDC federated** (без довгоживучих секретів)
-- Перший деплой: **WebTier** (walking skeleton)
+## Рішення
+- Регіон: **West Europe**; RG: **oilgas-rg**; env: **oilgas-env**
+- Брокер: **Mosquitto**, окремий Container App, **internal TCP** ingress :1883
+- Hardware: окремий Container App, **external** ingress :8080 (веб-морда + `/start` `/stop`)
+- Образи: **GHCR** (public); авт-ція GitHub→Azure: **OIDC federated**
+- **Мережевий нюанс:** internal TCP-застосунок доступний **за іменем** (`oilgas-mosquitto`), не за FQDN — див. `problems/2026-09-19-mqtt-internal-ingress.md`
 
 ## Передумови
-- `az`, `gh` (авторизований), Docker — встановлені.
-- `az login` виконано; активна підписка видно через `az account show`.
+- `az`, `gh` (авторизований), Docker; `az login` виконано; RG `oilgas-rg` створено.
 
-## Змінні (для команд нижче)
+## Крок 1 — Container Apps environment
 ```bash
-RG=oilgas-rg
-LOCATION=westeurope
-ENV=oilgas-env
-APP=oilgas-webtier
-GH_REPO=nasytnyk/oilgas
-APP_REG=oilgas-github          # Entra ID app для OIDC
+az containerapp env create -n oilgas-env -g oilgas-rg -l westeurope
 ```
 
----
-
-## Крок 1 — Resource group
-**Що це:** логічний контейнер для всіх ресурсів проекту. Дає одну точку керування і видалення (`az group delete -n oilgas-rg` знесе все разом).
-
+## Крок 2 — OIDC (GitHub Actions → Azure)
 ```bash
-az group create --name $RG --location $LOCATION
-```
-
-**Навіщо саме так:** усі подальші ресурси (Container Apps environment, застосунок) створюються всередині цієї RG у West Europe.
-
----
-
-## Крок 2 — Container Apps environment
-**Що це:** середовище виконання для Container Apps — спільна межа мережі/логів, у якій живуть застосунки-контейнери. За замовчуванням створює Log Analytics workspace для збору логів.
-
-```bash
-# розширення az CLI для Container Apps (одноразово)
-az extension add --name containerapp --upgrade
-
-# реєстрація постачальників ресурсів (одноразово на підписку)
-az provider register --namespace Microsoft.App --wait
-az provider register --namespace Microsoft.OperationalInsights --wait
-
-# саме середовище (план Consumption — має безкоштовний грант)
-az containerapp env create --name $ENV --resource-group $RG --location $LOCATION
-```
-
-**Навіщо:** застосунок `WebTier` деплоїться *в* environment. Реєстрація провайдерів (`Microsoft.App` — Container Apps; `Microsoft.OperationalInsights` — логи) потрібна раз на підписку.
-
-**Результат:** environment `oilgas-env` — стан `Succeeded`; отримує публічний домен виду `<random>.westeurope.azurecontainerapps.io`, під яким будуть доступні застосунки.
-
----
-
-## Крок 3 — OIDC (GitHub Actions → Azure без секретів-паролів)
-**Що це:** щоб workflow міг деплоїти, йому потрібні права в Azure. Замість довгоживучого пароля використовуємо **federated credential**: GitHub видає короткоживучий OIDC-токен, а Azure довіряє йому за збігом `issuer` + `subject`.
-
-```bash
-# 3a. App registration в Entra ID
 APP_ID=$(az ad app create --display-name oilgas-github --query appId -o tsv)
-
-# 3b. Service principal для цього app
 az ad sp create --id "$APP_ID"
-
-# 3c. Роль Contributor, обмежена ОДНІЄЮ resource group (least privilege)
+SP_OID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
 SUB_ID=$(az account show --query id -o tsv)
-az role assignment create --assignee "$APP_ID" --role Contributor \
-  --scope "/subscriptions/$SUB_ID/resourceGroups/oilgas-rg"
+az role assignment create --assignee-object-id "$SP_OID" --assignee-principal-type ServicePrincipal \
+  --role Contributor --scope "/subscriptions/$SUB_ID/resourceGroups/oilgas-rg"
 
-# 3d. Federated credential: довіра до workflow саме з нашого репо+гілки
-az ad app federated-credential create --id "$APP_ID" --parameters '{
-  "name":"github-main",
-  "issuer":"https://token.actions.githubusercontent.com",
-  "subject":"repo:nasytnyk/oilgas:ref:refs/heads/main",
-  "audiences":["api://AzureADTokenExchange"]
-}'
+# federated credentials: login-форма + ID-форма (цей акаунт віддає subject у формі ID)
+read OWNER_ID REPO_ID < <(gh api repos/nasytnyk/oilgas --jq '"\(.owner.id) \(.id)"')
+az ad app federated-credential create --id "$APP_ID" --parameters "{\"name\":\"github-main\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"repo:nasytnyk/oilgas:ref:refs/heads/main\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
+az ad app federated-credential create --id "$APP_ID" --parameters "{\"name\":\"github-main-idform\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"repo:nasytnyk@${OWNER_ID}/oilgas@${REPO_ID}:ref:refs/heads/main\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
 
-# 3e. Кладемо ID у GitHub Secrets (це ідентифікатори, не паролі)
-gh secret set AZURE_CLIENT_ID       -b "$APP_ID" -R nasytnyk/oilgas
+gh secret set AZURE_CLIENT_ID       -b "$APP_ID"                                    -R nasytnyk/oilgas
 gh secret set AZURE_TENANT_ID       -b "$(az account show --query tenantId -o tsv)" -R nasytnyk/oilgas
-gh secret set AZURE_SUBSCRIPTION_ID -b "$SUB_ID" -R nasytnyk/oilgas
+gh secret set AZURE_SUBSCRIPTION_ID -b "$SUB_ID"                                    -R nasytnyk/oilgas
 ```
 
-**Навіщо:** `subject` прив'язує довіру саме до `nasytnyk/oilgas` + `main` — OIDC-токен з іншого репо/гілки не підійде. У workflow `azure/login` обміняє OIDC-токен на короткоживучий Azure-токен — **жодного пароля в GitHub**.
+## Крок 3 — Образи + деплой = CI/CD
+Далі все робить `.github/workflows/deploy.yml` на кожен push у `main`:
+1. збирає образи `oilgas-hardware` і `oilgas-mosquitto`, пушить у GHCR;
+2. `azure/login` (OIDC);
+3. create-or-update **Mosquitto** (internal TCP :1883) і **Hardware** (external :8080, `Hardware__BrokerHost=oilgas-mosquitto`).
 
-**Результат:** app `oilgas-github` + SP + Contributor на `oilgas-rg` + federated credential (`main`); секрети `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` у репо.
+**Одноразово:** зробити GHCR-пакети `oilgas-hardware` і `oilgas-mosquitto` **public** (Package settings → Change visibility), щоб Container Apps тягнув без кредів.
 
-> **⚠️ Нюанс OIDC-subject (`AADSTS700213`).** Цей акаунт віддає OIDC-`subject` у формі **ID**, а не логінів:
-> `repo:<owner_login>@<owner_id>/<repo>@<repo_id>:ref:refs/heads/main`.
-> Якщо `azure/login` падає з `No matching federated identity record found` — подивись пред'явлений subject у логах і додай federated credential саме з ним:
-> ```bash
-> gh api repos/nasytnyk/oilgas --jq '{owner_id:.owner.id, repo_id:.id}'   # взяти ID
-> az ad app federated-credential create --id <AZURE_CLIENT_ID> --parameters '{
->   "name":"github-main-idform",
->   "issuer":"https://token.actions.githubusercontent.com",
->   "subject":"repo:nasytnyk@<owner_id>/oilgas@<repo_id>:ref:refs/heads/main",
->   "audiences":["api://AzureADTokenExchange"]
-> }'
-> ```
-> ID-форма навіть надійніша: переживає перейменування репо/власника.
+Результат: веб-морда Hardware на `https://oilgas-hardware.<env-domain>/` — кнопками вмикаєш/вимикаєш симуляцію; телеметрія тече в Mosquitto.
 
----
-
-## Крок 4 — Dockerfile для WebTier
-**Що це:** інструкція збірки образу. Багатоетапна: етап `build` (повний SDK) компілює й `publish`-ить; етап `runtime` (легкий `aspnet`-образ) містить лише готовий застосунок — менший і безпечніший.
-
-- Файл: `src/Oilgas.WebTier/Dockerfile`. Контекст збірки — **корінь репозиторію** (щоб бачити `global.json` і граф проектів).
-- Порт **8080** (ASP.NET у контейнері за замовчуванням слухає 8080; Container Apps проксить на нього).
-- `.dockerignore` у корені виключає `bin/`, `obj/`, `.git/` з контексту.
-
-## Крок 5 — Workflow: build + push у GHCR
-Файл: `.github/workflows/deploy.yml`. На push у `main` (зміни в `src/**`):
-1. `docker/login-action` логіниться в GHCR вбудованим `GITHUB_TOKEN` (живе лише під час запуску);
-2. `docker/build-push-action` збирає образ і пушить теги `:<sha>` та `:latest`.
-
-**Навіщо `packages: write`:** право пушу образу в GHCR. **Чому тут ще нема деплою:** свіжий пакет GHCR приватний — крок деплою додамо після того, як зробимо його public (Крок 6).
-
----
-
-## Крок 6 — Перший деплой Container App
-**6a (одноразово, вручну):** зробити GHCR-пакет `oilgas-webtier` **public**:
-GitHub → профіль → Packages → `oilgas-webtier` → Package settings → Danger Zone → *Change visibility* → **Public**.
-Далі Container Apps тягне образ анонімно, без секретів.
-
-**6b:** створення застосунку з публічного образу:
+## Ручний деплой (якщо треба без CD)
 ```bash
-az containerapp create \
-  --name oilgas-webtier \
-  --resource-group oilgas-rg \
-  --environment oilgas-env \
-  --image ghcr.io/nasytnyk/oilgas-webtier:latest \
-  --ingress external --target-port 8080
+# Mosquitto (internal TCP)
+az containerapp create -n oilgas-mosquitto -g oilgas-rg --environment oilgas-env \
+  --image ghcr.io/nasytnyk/oilgas-mosquitto:latest \
+  --ingress internal --transport tcp --target-port 1883 --exposed-port 1883 \
+  --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi
+
+# Hardware (external) — BrokerHost = ІМ'Я застосунку Mosquitto
+az containerapp create -n oilgas-hardware -g oilgas-rg --environment oilgas-env \
+  --image ghcr.io/nasytnyk/oilgas-hardware:latest \
+  --ingress external --target-port 8080 \
+  --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
+  --env-vars Hardware__BrokerHost=oilgas-mosquitto Hardware__BrokerPort=1883 Hardware__IntervalSeconds=5
 ```
-**Результат:** застосунок доступний за `https://oilgas-webtier.<env-domain>/` і повертає `Hello World!` (HTTP 200).
 
----
-
-## Крок 7 — Замкнути CD (авто-деплой)
-Розширюємо `deploy.yml`: додаємо `id-token: write`, крок `azure/login` (OIDC) і крок деплою (`az containerapp update`, з fallback на `create`).
-Тепер **кожен push у `main`** сам: збирає образ → пушить у GHCR → оновлює Container App новою ревізією.
-
-**Навіщо `id-token: write`:** дозволяє workflow отримати OIDC-токен для `azure/login`. Пароля service principal немає — довіра через federated credential (Крок 3).
-
----
-
-## Знесення всього
+## Знесення
 ```bash
-az group delete --name oilgas-rg --yes --no-wait   # усі Azure-ресурси
-# federated credential + app registration прибираються окремо:
+az group delete --name oilgas-rg --yes --no-wait
+# Entra app окремо (не в RG):
 # az ad app delete --id <AZURE_CLIENT_ID>
 ```
