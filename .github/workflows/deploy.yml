@@ -145,21 +145,21 @@ jobs:
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi --only-show-errors -o none
           fi
 
-      - name: Deploy Hardware (external web UI + simulator)
+      - name: Deploy Hardware (internal simulator + control API)
         if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.hardware == 'true' }}
         run: |
+          # Hardware без морди: internal ingress, лише /start /stop для Ui (за іменем oilgas-hardware)
           if az containerapp show -n oilgas-hardware -g "$RG" -o none 2>/dev/null; then
             az containerapp update -n oilgas-hardware -g "$RG" \
               --image "$HW_IMAGE:$GITHUB_SHA" --only-show-errors -o none
           else
             az containerapp create -n oilgas-hardware -g "$RG" --environment "$ENV_NAME" \
               --image "$HW_IMAGE:$GITHUB_SHA" \
-              --ingress external --target-port 8080 \
+              --ingress internal --target-port 8080 \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
               --env-vars "Mqtt__Host=oilgas-mosquitto" "Mqtt__Port=1883" "Hardware__IntervalSeconds=5" \
               --only-show-errors -o none
           fi
-          echo "Hardware URL: https://$(az containerapp show -n oilgas-hardware -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
 
       - name: Deploy RabbitMQ (internal AMQP broker)
         if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' }}

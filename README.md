@@ -9,9 +9,6 @@ global on / off
 ui
 - <https://oilgas-ui.livelyplant-0a492aef.westeurope.azurecontainerapps.io/>
 
-on / off telemetry stream
-- <https://oilgas-hardware.livelyplant-0a492aef.westeurope.azurecontainerapps.io/> 
-
 mosquitto
 - internal tcp `oilgas-mosquitto:1883`
 

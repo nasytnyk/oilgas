@@ -32,12 +32,8 @@ var app = builder.Build();
 
 var telemetry = app.Services.GetRequiredService<TelemetryToggle>();
 
-// веб-морда: статичний wwwroot/index.html подається на "/"
-app.UseDefaultFiles();
-app.UseStaticFiles();
-
-// API керування потоком телеметрії
-app.MapGet("/status", () => Results.Ok(new { on = telemetry.IsOn }));
+// Тільки внутрішнє контрольне API (без сторінки для юзера) — вимикач живе в Ui,
+// який смикає ці ендпоінти. Hardware = «залізо» без морди, internal ingress.
 app.MapPost("/start", () => { telemetry.Start(); return Results.Ok(new { on = true }); });
 app.MapPost("/stop", () => { telemetry.Stop(); return Results.Ok(new { on = false }); });
 
