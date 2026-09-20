@@ -26,16 +26,15 @@ public sealed class HardwareUnit(
         var samples = new List<TickSample>(profiles.Count);
         foreach (var p in profiles)
         {
+            var m = p.Measurement;
             var value = p.Baseline + (Random.Shared.NextDouble() - 0.5) * 2 * p.Noise;
             if (Random.Shared.NextDouble() < p.SpikeChance)
             {
                 var sign = Random.Shared.Next(2) == 0 ? -1 : 1; // сплеск у довільну сторону
                 value *= 1 + sign * p.SpikePercent;
             }
-            samples.Add(new TickSample(
-                p.Measurement.Wire(),
-                Math.Round(value, 2),
-                p.Measurement.UnitOf().Symbol()));
+            value = Math.Clamp(value, m.Floor, m.Ceiling);       // не виходимо за фізичні межі
+            samples.Add(new TickSample(m.Wire, Math.Round(value, m.Decimals), m.Unit.Symbol()));
         }
         return new TelemetryMessage(Id, Type.Wire(), Field.Wire(), Well.Wire(), now, samples);
     }

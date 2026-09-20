@@ -31,25 +31,6 @@ namespace Oilgas.Postgres.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Boundaries",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    DeviceType = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    Metric = table.Column<string>(type: "text", nullable: false),
-                    Unit = table.Column<string>(type: "text", nullable: false),
-                    WarningMin = table.Column<double>(type: "double precision", nullable: true),
-                    WarningMax = table.Column<double>(type: "double precision", nullable: true),
-                    CriticalMin = table.Column<double>(type: "double precision", nullable: true),
-                    CriticalMax = table.Column<double>(type: "double precision", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Boundaries", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Mines",
                 columns: table => new
                 {
@@ -110,12 +91,6 @@ namespace Oilgas.Postgres.Migrations
                 columns: new[] { "DeviceId", "Timestamp" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Boundaries_DeviceType_Metric",
-                table: "Boundaries",
-                columns: new[] { "DeviceType", "Metric" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Devices_MineId",
                 table: "Devices",
                 column: "MineId");
@@ -131,9 +106,6 @@ namespace Oilgas.Postgres.Migrations
         {
             migrationBuilder.DropTable(
                 name: "Anomalies");
-
-            migrationBuilder.DropTable(
-                name: "Boundaries");
 
             migrationBuilder.DropTable(
                 name: "Devices");

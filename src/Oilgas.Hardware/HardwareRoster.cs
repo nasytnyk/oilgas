@@ -2,36 +2,39 @@ using Oilgas.Measurements;
 
 namespace Oilgas.Hardware;
 
-/// <summary>Фіксований набір одиниць обладнання різних типів (демо-«поле»).</summary>
+/// <summary>
+/// Фіксований набір одиниць обладнання (демо-«поле»). Тут — лише per-device тюнінг симуляції;
+/// усе інтринсивне метриці (одиниця, межі, пороги) живе в <see cref="Measurement"/>.
+/// У проді цей набір приходив би з БД/конфігу.
+/// </summary>
 public static class HardwareRoster
 {
     public static IReadOnlyList<HardwareUnit> Build() =>
     [
         new(DeviceType.EspPump, 1, Field.North, Well.W12,
         [
-            //                       metric                        base  noise  spike%  ±
-            new(Measurement.IntakePressure,  80,   8, 0.05, 0.5),
-            new(Measurement.MotorTemp,       95,   6, 0.05, 0.3),
-            new(Measurement.Vibration,        3,   1, 0.05, 0.6),
-            new(Measurement.Rpm,           3500,  80, 0,    0),
+            new(Measurement.IntakePressure, Baseline: 80,   Noise: 8,  SpikeChance: 0.05, SpikePercent: 0.5),
+            new(Measurement.MotorTemp,      Baseline: 95,   Noise: 6,  SpikeChance: 0.05, SpikePercent: 0.3),
+            new(Measurement.Vibration,      Baseline: 3,    Noise: 1,  SpikeChance: 0.05, SpikePercent: 0.6),
+            new(Measurement.Rpm,            Baseline: 3500, Noise: 80, SpikeChance: 0,    SpikePercent: 0),
         ]),
         new(DeviceType.Wellhead, 1, Field.North, Well.W12,
         [
-            new(Measurement.TubingPressure, 150, 10, 0.05, 0.4),
-            new(Measurement.CasingPressure,  90,  6, 0.05, 0.4),
-            new(Measurement.Temperature,     70,  4, 0.03, 0.35),
+            new(Measurement.TubingPressure, Baseline: 150, Noise: 10, SpikeChance: 0.05, SpikePercent: 0.4),
+            new(Measurement.CasingPressure, Baseline: 90,  Noise: 6,  SpikeChance: 0.05, SpikePercent: 0.4),
+            new(Measurement.Temperature,    Baseline: 70,  Noise: 4,  SpikeChance: 0.03, SpikePercent: 0.35),
         ]),
         new(DeviceType.Separator, 1, Field.North, Well.Cpf,
         [
-            new(Measurement.Pressure, 12, 1.5, 0.04, 0.5),
-            new(Measurement.Level,    60,   8, 0.04, 0.4),
-            new(Measurement.GasFlow, 500,  40, 0,    0),
+            new(Measurement.Pressure, Baseline: 12,  Noise: 1.5, SpikeChance: 0.04, SpikePercent: 0.5),
+            new(Measurement.Level,    Baseline: 60,  Noise: 8,   SpikeChance: 0.04, SpikePercent: 0.4),
+            new(Measurement.GasFlow,  Baseline: 500, Noise: 40,  SpikeChance: 0,    SpikePercent: 0),
         ]),
         new(DeviceType.Compressor, 1, Field.North, Well.Cpf,
         [
-            new(Measurement.DischargePressure, 40, 4, 0.05, 0.5),
-            new(Measurement.Temperature,       85, 6, 0.05, 0.35),
-            new(Measurement.Vibration,          4, 1, 0.05, 0.6),
+            new(Measurement.DischargePressure, Baseline: 40, Noise: 4, SpikeChance: 0.05, SpikePercent: 0.5),
+            new(Measurement.Temperature,       Baseline: 85, Noise: 6, SpikeChance: 0.05, SpikePercent: 0.35),
+            new(Measurement.Vibration,         Baseline: 4,  Noise: 1, SpikeChance: 0.05, SpikePercent: 0.6),
         ]),
     ];
 }

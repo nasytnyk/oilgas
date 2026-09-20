@@ -3,10 +3,9 @@ using Oilgas.Measurements;
 namespace Oilgas.Hardware;
 
 /// <summary>
-/// Профіль генерації одного виміру: база + шум, і зрідка — сплеск.
-/// Парний до Model.MeasurementBoundary за <see cref="Measurement"/>:
-/// profile — ЯК генерувати, boundary — КОЛИ аларм.
-/// Одиниця не зберігається тут — вона похідна від метрики (MeasurementCatalog.UnitOf).
+/// Per-device тюнінг симуляції однієї метрики: база + шум, і зрідка — сплеск.
+/// Усе інтринсивне (одиниця, фізичні межі, точність, алармові пороги) живе в
+/// <see cref="Measurement"/>; тут — лише те, що залежить від конкретного пристрою.
 /// </summary>
 public sealed record MeasurementProfile(
     Measurement Measurement, // яку величину симулюємо

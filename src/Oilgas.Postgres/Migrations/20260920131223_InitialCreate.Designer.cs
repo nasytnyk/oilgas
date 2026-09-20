@@ -12,7 +12,7 @@ using Oilgas.Postgres;
 namespace Oilgas.Postgres.Migrations
 {
     [DbContext(typeof(OilgasDbContext))]
-    [Migration("20260919183148_InitialCreate")]
+    [Migration("20260920131223_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -94,47 +94,6 @@ namespace Oilgas.Postgres.Migrations
                     b.HasIndex("MineId");
 
                     b.ToTable("Devices");
-                });
-
-            modelBuilder.Entity("Oilgas.Model.MetricBoundary", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<double?>("CriticalMax")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("CriticalMin")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("DeviceType")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("Metric")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Unit")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double?>("WarningMax")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("WarningMin")
-                        .HasColumnType("double precision");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DeviceType", "Metric")
-                        .IsUnique();
-
-                    b.ToTable("Boundaries");
                 });
 
             modelBuilder.Entity("Oilgas.Model.Mine", b =>
