@@ -7,13 +7,10 @@ global on / off
 - <https://github.com/nasytnyk/oilgas/actions/workflows/power.yml>
 
 ui
-- <https://oilgas-webtier.livelyplant-0a492aef.westeurope.azurecontainerapps.io/>
+- <https://oilgas-ui.livelyplant-0a492aef.westeurope.azurecontainerapps.io/>
 
 on / off telemetry stream
 - <https://oilgas-hardware.livelyplant-0a492aef.westeurope.azurecontainerapps.io/> 
-
-view raw log
-- <https://oilgas-rawlog.livelyplant-0a492aef.westeurope.azurecontainerapps.io/>
 
 mosquitto
 - internal tcp `oilgas-mosquitto:1883`
