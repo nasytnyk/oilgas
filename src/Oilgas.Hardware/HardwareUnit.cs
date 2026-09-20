@@ -3,23 +3,26 @@ using Oilgas.Measurements;
 
 namespace Oilgas.Hardware;
 
-/// <summary>Одна одиниця обладнання (емулятор): генерує TelemetryMessage і знає свої MQTT-топіки.</summary>
+/// <summary>
+/// Одна одиниця обладнання (емулятор): генерує TelemetryMessage і знає свої MQTT-топіки.
+/// Топологія (type/field/well) — рядки з hardware.json (data-driven), тому тут не enum-и.
+/// </summary>
 public sealed class HardwareUnit(
-    DeviceType type,
+    string type,
     int number,
-    Field field,
-    Well well,
+    string field,
+    string well,
     IReadOnlyList<MeasurementProfile> profiles)
 {
-    public DeviceType Type { get; } = type;
-    public Field Field { get; } = field;
-    public Well Well { get; } = well;
+    public string Type { get; } = type;   // wire-рядок, напр. "esp_pump"
+    public string Field { get; } = field; // напр. "north"
+    public string Well { get; } = well;   // напр. "w12"
 
-    /// <summary>Id виводиться з типу пристрою + номера: esp_pump-001.</summary>
-    public string Id { get; } = $"{type.Wire()}-{number:D3}";
+    /// <summary>Id виводиться з типу + номера: esp_pump-001.</summary>
+    public string Id { get; } = $"{type}-{number:D3}";
 
-    public string TelemetryTopic => $"oilgas/{Field.Wire()}/{Well.Wire()}/{Type.Wire()}/{Id}/telemetry";
-    public string StatusTopic    => $"oilgas/{Field.Wire()}/{Well.Wire()}/{Type.Wire()}/{Id}/status";
+    public string TelemetryTopic => $"oilgas/{Field}/{Well}/{Type}/{Id}/telemetry";
+    public string StatusTopic    => $"oilgas/{Field}/{Well}/{Type}/{Id}/status";
 
     public TelemetryMessage BuildTelemetry(DateTimeOffset now)
     {
@@ -36,7 +39,7 @@ public sealed class HardwareUnit(
             value = Math.Clamp(value, m.Floor, m.Ceiling);       // не виходимо за фізичні межі
             samples.Add(new TickSample(m.Wire, Math.Round(value, m.Decimals), m.Unit.Symbol()));
         }
-        return new TelemetryMessage(Id, Type.Wire(), Field.Wire(), Well.Wire(), now, samples);
+        return new TelemetryMessage(Id, Type, Field, Well, now, samples);
     }
 
     public DeviceStatusMessage BuildStatus(DeviceState state, DateTimeOffset now) =>

@@ -14,6 +14,7 @@ namespace Oilgas.Hardware;
 public sealed class TelemetryWorker(
     IOptions<MqttOptions> mqttOptions,
     IOptions<HardwareOptions> hardwareOptions,
+    IReadOnlyList<HardwareUnit> units,
     TelemetryToggle telemetry,
     ILogger<TelemetryWorker> logger) : BackgroundService
 {
@@ -26,7 +27,7 @@ public sealed class TelemetryWorker(
     {
         var factory = new MqttClientFactory();
 
-        foreach (var unit in HardwareRoster.Build())
+        foreach (var unit in units)
         {
             var client = await ConnectAsync(factory, unit, ct);
             if (client is null) continue;                       // не змогли — пропускаємо юніт

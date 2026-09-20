@@ -16,4 +16,9 @@
     <ProjectReference Include="..\Oilgas.Measurements\Oilgas.Measurements.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- набір пристроїв поряд із кодом; копія у виводі, звідти читає IConfiguration -->
+    <Content Update="hardware.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
