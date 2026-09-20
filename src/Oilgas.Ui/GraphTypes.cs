@@ -1,4 +1,4 @@
-namespace Oilgas.WebTier;
+namespace Oilgas.Ui;
 
 /// <summary>Жива подія з RabbitMQ (для subscription): routing key + сирий payload.</summary>
 public sealed record LiveEvent(string Topic, string Payload, DateTimeOffset At);

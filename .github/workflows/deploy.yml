@@ -1,29 +1,28 @@
 name: Deploy
 
-# Повний CD під поточну ситуацію:
-#   build Hardware + Mosquitto -> GHCR -> OIDC-логін -> деплой у Container Apps (oilgas-rg).
-# Mosquitto — internal TCP-брокер; Hardware конектиться до нього ЗА ІМЕНЕМ (oilgas-mosquitto).
+# Пер-сервісний CD у Azure Container Apps (oilgas-rg).
+# Змінився лише один сервіс -> редеплоїться лише він; спільний Oilgas.Model або сам
+# workflow/slnx -> редеплой усього. Зміни в доках/скриптах деплой не тригерять.
 on:
   push:
     branches: [ main ]
-    paths-ignore:        # зміни лише в доках/скриптах не тригерять деплой
+    paths-ignore:
       - '**.md'
       - 'scripts/**'
       - 'problems/**'
   workflow_dispatch:
 
 permissions:
-  id-token: write        # OIDC-логін у Azure
+  id-token: write
   contents: read
-  packages: write        # пуш образів у GHCR
+  packages: write
 
 env:
   HW_IMAGE: ghcr.io/nasytnyk/oilgas-hardware
   MQ_IMAGE: ghcr.io/nasytnyk/oilgas-mosquitto
-  WT_IMAGE: ghcr.io/nasytnyk/oilgas-mqtt-to-rabbitmq
-  RL_IMAGE: ghcr.io/nasytnyk/oilgas-rawlog
-  DW_IMAGE: ghcr.io/nasytnyk/oilgas-dbwriter
-  WEB_IMAGE: ghcr.io/nasytnyk/oilgas-webtier
+  BRIDGE_IMAGE: ghcr.io/nasytnyk/oilgas-mqtt-to-rmq
+  DB_IMAGE: ghcr.io/nasytnyk/oilgas-rmq-to-db
+  UI_IMAGE: ghcr.io/nasytnyk/oilgas-ui
   RABBIT_IMAGE: rabbitmq:4-management-alpine
   RG: oilgas-rg
   ENV_NAME: oilgas-env
@@ -36,8 +35,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Визначаємо, які сервіси змінились (їхні файли + спільні залежності).
-      # workflow_dispatch або зміна самого workflow/solution -> деплой усього.
       - name: Detect changed services
         id: filter
         uses: dorny/paths-filter@v3
@@ -49,25 +46,18 @@ jobs:
               - 'Oilgas.slnx'
             hardware:
               - 'src/Oilgas.Hardware/**'
-              - 'src/Oilgas.Contracts/**'
-              - 'src/Oilgas.Measurements/**'
+              - 'src/Oilgas.Model/**'
             mosquitto:
               - 'deploy/mosquitto/**'
             bridge:
-              - 'src/Oilgas.MqttToRabbitMq/**'
-            rawlog:
-              - 'src/Oilgas.RawLog/**'
-            dbwriter:
-              - 'src/Oilgas.DbWriter/**'
-              - 'src/Oilgas.Contracts/**'
+              - 'src/Oilgas.MqttToRmq/**'
+            db:
+              - 'src/Oilgas.RmqToDb/**'
               - 'src/Oilgas.Model/**'
-              - 'src/Oilgas.Measurements/**'
               - 'src/Oilgas.SqlServer/**'
-            webtier:
-              - 'src/Oilgas.WebTier/**'
-              - 'src/Oilgas.Contracts/**'
+            ui:
+              - 'src/Oilgas.Ui/**'
               - 'src/Oilgas.Model/**'
-              - 'src/Oilgas.Measurements/**'
               - 'src/Oilgas.SqlServer/**'
 
       - name: Log in to GHCR
@@ -99,49 +89,38 @@ jobs:
             ${{ env.MQ_IMAGE }}:${{ github.sha }}
             ${{ env.MQ_IMAGE }}:latest
 
-      - name: Build & push MqttToRabbitMq (bridge)
+      - name: Build & push MqttToRmq (bridge)
         if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.bridge == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: src/Oilgas.MqttToRabbitMq/Dockerfile
+          file: src/Oilgas.MqttToRmq/Dockerfile
           push: true
           tags: |
-            ${{ env.WT_IMAGE }}:${{ github.sha }}
-            ${{ env.WT_IMAGE }}:latest
+            ${{ env.BRIDGE_IMAGE }}:${{ github.sha }}
+            ${{ env.BRIDGE_IMAGE }}:latest
 
-      - name: Build & push RawLog
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.rawlog == 'true' }}
+      - name: Build & push RmqToDb
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.db == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: src/Oilgas.RawLog/Dockerfile
+          file: src/Oilgas.RmqToDb/Dockerfile
           push: true
           tags: |
-            ${{ env.RL_IMAGE }}:${{ github.sha }}
-            ${{ env.RL_IMAGE }}:latest
+            ${{ env.DB_IMAGE }}:${{ github.sha }}
+            ${{ env.DB_IMAGE }}:latest
 
-      - name: Build & push DbWriter
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.dbwriter == 'true' }}
+      - name: Build & push Ui (GraphQL + console)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.ui == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: src/Oilgas.DbWriter/Dockerfile
+          file: src/Oilgas.Ui/Dockerfile
           push: true
           tags: |
-            ${{ env.DW_IMAGE }}:${{ github.sha }}
-            ${{ env.DW_IMAGE }}:latest
-
-      - name: Build & push WebTier (GraphQL + console)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.webtier == 'true' }}
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: src/Oilgas.WebTier/Dockerfile
-          push: true
-          tags: |
-            ${{ env.WEB_IMAGE }}:${{ github.sha }}
-            ${{ env.WEB_IMAGE }}:latest
+            ${{ env.UI_IMAGE }}:${{ github.sha }}
+            ${{ env.UI_IMAGE }}:latest
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -173,7 +152,6 @@ jobs:
             az containerapp update -n oilgas-hardware -g "$RG" \
               --image "$HW_IMAGE:$GITHUB_SHA" --only-show-errors -o none
           else
-            # ВАЖЛИВО: BrokerHost = ІМ'Я застосунку Mosquitto (internal TCP доступний за іменем, не FQDN)
             az containerapp create -n oilgas-hardware -g "$RG" --environment "$ENV_NAME" \
               --image "$HW_IMAGE:$GITHUB_SHA" \
               --ingress external --target-port 8080 \
@@ -202,15 +180,15 @@ jobs:
               --only-show-errors -o none
           fi
 
-      - name: Deploy MqttToRabbitMq (Mosquitto -> RabbitMQ bridge)
+      - name: Deploy MqttToRmq (Mosquitto -> RabbitMQ bridge)
         if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.bridge == 'true' }}
         run: |
-          if az containerapp show -n oilgas-mqtt-to-rabbitmq -g "$RG" -o none 2>/dev/null; then
-            az containerapp update -n oilgas-mqtt-to-rabbitmq -g "$RG" \
-              --image "$WT_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          if az containerapp show -n oilgas-mqtt-to-rmq -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-mqtt-to-rmq -g "$RG" \
+              --image "$BRIDGE_IMAGE:$GITHUB_SHA" --only-show-errors -o none
           else
-            az containerapp create -n oilgas-mqtt-to-rabbitmq -g "$RG" --environment "$ENV_NAME" \
-              --image "$WT_IMAGE:$GITHUB_SHA" \
+            az containerapp create -n oilgas-mqtt-to-rmq -g "$RG" --environment "$ENV_NAME" \
+              --image "$BRIDGE_IMAGE:$GITHUB_SHA" \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
               --secrets "rabbit-pass=$RABBITMQ_PASSWORD" \
               --env-vars "Mqtt__Host=oilgas-mosquitto" "Mqtt__Port=1883" \
@@ -219,37 +197,19 @@ jobs:
               --only-show-errors -o none
           fi
 
-      - name: Deploy RawLog (external web UI, RabbitMQ consumer)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.rawlog == 'true' }}
-        run: |
-          if az containerapp show -n oilgas-rawlog -g "$RG" -o none 2>/dev/null; then
-            az containerapp update -n oilgas-rawlog -g "$RG" \
-              --image "$RL_IMAGE:$GITHUB_SHA" --only-show-errors -o none
-          else
-            az containerapp create -n oilgas-rawlog -g "$RG" --environment "$ENV_NAME" \
-              --image "$RL_IMAGE:$GITHUB_SHA" \
-              --ingress external --target-port 8080 \
-              --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
-              --secrets "rabbit-pass=$RABBITMQ_PASSWORD" \
-              --env-vars "Rabbit__Host=oilgas-rabbitmq" "Rabbit__Port=5672" \
-                         "Rabbit__User=oilgas" "Rabbit__Password=secretref:rabbit-pass" \
-              --only-show-errors -o none
-          fi
-          echo "RawLog URL: https://$(az containerapp show -n oilgas-rawlog -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
-
-      - name: Deploy DbWriter (RabbitMQ -> Azure SQL microservice)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.dbwriter == 'true' }}
+      - name: Deploy RmqToDb (RabbitMQ -> Azure SQL microservice)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.db == 'true' }}
         run: |
           if [ -z "$SQL_CONNECTION" ]; then
-            echo "::warning::Секрет SQL_CONNECTION не заданий — пропускаю DbWriter. Додай: gh secret set SQL_CONNECTION -R nasytnyk/oilgas"
+            echo "::warning::SQL_CONNECTION не заданий — пропускаю RmqToDb. Додай: gh secret set SQL_CONNECTION -R nasytnyk/oilgas"
             exit 0
           fi
-          if az containerapp show -n oilgas-dbwriter -g "$RG" -o none 2>/dev/null; then
-            az containerapp update -n oilgas-dbwriter -g "$RG" \
-              --image "$DW_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          if az containerapp show -n oilgas-rmq-to-db -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-rmq-to-db -g "$RG" \
+              --image "$DB_IMAGE:$GITHUB_SHA" --only-show-errors -o none
           else
-            az containerapp create -n oilgas-dbwriter -g "$RG" --environment "$ENV_NAME" \
-              --image "$DW_IMAGE:$GITHUB_SHA" \
+            az containerapp create -n oilgas-rmq-to-db -g "$RG" --environment "$ENV_NAME" \
+              --image "$DB_IMAGE:$GITHUB_SHA" \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
               --secrets "rabbit-pass=$RABBITMQ_PASSWORD" "sql-conn=$SQL_CONNECTION" \
               --env-vars "Rabbit__Host=oilgas-rabbitmq" "Rabbit__Port=5672" \
@@ -258,19 +218,19 @@ jobs:
               --only-show-errors -o none
           fi
 
-      - name: Deploy WebTier (GraphQL API + engineering console)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.webtier == 'true' }}
+      - name: Deploy Ui (GraphQL API + engineering console)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.ui == 'true' }}
         run: |
           if [ -z "$SQL_CONNECTION" ]; then
-            echo "::warning::SQL_CONNECTION не заданий — пропускаю WebTier (потрібна БД для queries)."
+            echo "::warning::SQL_CONNECTION не заданий — пропускаю Ui (потрібна БД для queries)."
             exit 0
           fi
-          if az containerapp show -n oilgas-webtier -g "$RG" -o none 2>/dev/null; then
-            az containerapp update -n oilgas-webtier -g "$RG" \
-              --image "$WEB_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          if az containerapp show -n oilgas-ui -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-ui -g "$RG" \
+              --image "$UI_IMAGE:$GITHUB_SHA" --only-show-errors -o none
           else
-            az containerapp create -n oilgas-webtier -g "$RG" --environment "$ENV_NAME" \
-              --image "$WEB_IMAGE:$GITHUB_SHA" \
+            az containerapp create -n oilgas-ui -g "$RG" --environment "$ENV_NAME" \
+              --image "$UI_IMAGE:$GITHUB_SHA" \
               --ingress external --target-port 8080 \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
               --secrets "rabbit-pass=$RABBITMQ_PASSWORD" "sql-conn=$SQL_CONNECTION" \
@@ -280,4 +240,4 @@ jobs:
                          "Hardware__BaseUrl=http://oilgas-hardware" \
               --only-show-errors -o none
           fi
-          echo "Console URL: https://$(az containerapp show -n oilgas-webtier -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
+          echo "Console URL: https://$(az containerapp show -n oilgas-ui -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"

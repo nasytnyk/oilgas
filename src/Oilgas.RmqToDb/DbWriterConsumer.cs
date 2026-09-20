@@ -6,7 +6,7 @@ using Oilgas.SqlServer;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
-namespace Oilgas.DbWriter;
+namespace Oilgas.RmqToDb;
 
 /// <summary>
 /// Мікросервіс запису: споживає телеметрію з RabbitMQ і пише її рядками Tick в Azure SQL (EF Core).

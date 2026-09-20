@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Oilgas.Model;
 using Oilgas.SqlServer;
 
-namespace Oilgas.WebTier;
+namespace Oilgas.Ui;
 
 /// <summary>GraphQL queries — читання історії/станів з Azure SQL.</summary>
 public sealed class Query

@@ -1,6 +1,6 @@
 using HotChocolate.Subscriptions;
 
-namespace Oilgas.WebTier;
+namespace Oilgas.Ui;
 
 /// <summary>GraphQL subscription — жива телеметрія з RabbitMQ (топік "telemetry").</summary>
 public sealed class Subscription

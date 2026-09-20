@@ -5,13 +5,13 @@ WORKDIR /src
 COPY global.json ./
 COPY src/Oilgas.Model/Oilgas.Model.csproj               src/Oilgas.Model/
 COPY src/Oilgas.SqlServer/Oilgas.SqlServer.csproj         src/Oilgas.SqlServer/
-COPY src/Oilgas.DbWriter/Oilgas.DbWriter.csproj         src/Oilgas.DbWriter/
-RUN dotnet restore src/Oilgas.DbWriter/Oilgas.DbWriter.csproj
+COPY src/Oilgas.RmqToDb/Oilgas.RmqToDb.csproj         src/Oilgas.RmqToDb/
+RUN dotnet restore src/Oilgas.RmqToDb/Oilgas.RmqToDb.csproj
 
 COPY src/ src/
-RUN dotnet publish src/Oilgas.DbWriter/Oilgas.DbWriter.csproj -c Release -o /app --no-restore
+RUN dotnet publish src/Oilgas.RmqToDb/Oilgas.RmqToDb.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app ./
-ENTRYPOINT ["dotnet", "Oilgas.DbWriter.dll"]
+ENTRYPOINT ["dotnet", "Oilgas.RmqToDb.dll"]

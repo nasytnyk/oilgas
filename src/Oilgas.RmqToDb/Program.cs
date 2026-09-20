@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Oilgas.DbWriter;
+using Oilgas.RmqToDb;
 using Oilgas.SqlServer;
 
 var builder = Host.CreateApplicationBuilder(args);

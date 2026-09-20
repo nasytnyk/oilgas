@@ -1,18 +1,19 @@
+using System.Text;
+using HotChocolate.Subscriptions;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
-namespace Oilgas.RawLog;
+namespace Oilgas.Ui;
 
 /// <summary>
-/// Споживач RabbitMQ: створює тимчасову чергу, біндить її до topic-exchange і складає
-/// кожне повідомлення в <see cref="RawLogStore"/>. Це перший споживач у fan-out — інші
-/// (db, графіки) додаються власними чергами до того ж exchange.
+/// Споживач RabbitMQ, що живить GraphQL-subscription: кожне повідомлення з exchange
+/// пушиться у топік "telemetry" через ITopicEventSender → долітає до підписаних клієнтів.
 /// </summary>
-public sealed class RawLogConsumer(
+public sealed class TelemetryStreamConsumer(
     IOptions<RabbitOptions> options,
-    RawLogStore store,
-    ILogger<RawLogConsumer> logger) : BackgroundService
+    ITopicEventSender sender,
+    ILogger<TelemetryStreamConsumer> logger) : BackgroundService
 {
     private readonly RabbitOptions _opt = options.Value;
     private IConnection? _conn;
@@ -35,19 +36,17 @@ public sealed class RawLogConsumer(
                 _conn = await factory.CreateConnectionAsync(ct);
                 _channel = await _conn.CreateChannelAsync(cancellationToken: ct);
                 await _channel.ExchangeDeclareAsync(_opt.Exchange, ExchangeType.Topic, durable: true, cancellationToken: ct);
-
-                var queue = await _channel.QueueDeclareAsync(cancellationToken: ct); // server-named, exclusive
+                var queue = await _channel.QueueDeclareAsync(cancellationToken: ct); // ephemeral
                 await _channel.QueueBindAsync(queue.QueueName, _opt.Exchange, _opt.Binding, cancellationToken: ct);
 
                 var consumer = new AsyncEventingBasicConsumer(_channel);
-                consumer.ReceivedAsync += (_, ea) =>
+                consumer.ReceivedAsync += async (_, ea) =>
                 {
-                    store.Add(ea.RoutingKey, ea.Body.ToArray());
-                    return Task.CompletedTask;
+                    var ev = new LiveEvent(ea.RoutingKey, Encoding.UTF8.GetString(ea.Body.Span), DateTimeOffset.UtcNow);
+                    await sender.SendAsync("telemetry", ev, ct);
                 };
                 await _channel.BasicConsumeAsync(queue.QueueName, autoAck: true, consumer: consumer, cancellationToken: ct);
-
-                logger.LogInformation("RawLog consuming {Exchange} ({Binding})", _opt.Exchange, _opt.Binding);
+                logger.LogInformation("WebTier streaming {Exchange} ({Binding}) -> GraphQL subscription", _opt.Exchange, _opt.Binding);
                 break;
             }
             catch (Exception ex)

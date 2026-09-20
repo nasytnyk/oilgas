@@ -1,4 +1,4 @@
-namespace Oilgas.MqttToRabbitMq;
+namespace Oilgas.MqttToRmq;
 
 /// <summary>Підключення до MQTT-брокера (секція "Mqtt").</summary>
 public sealed class MqttOptions

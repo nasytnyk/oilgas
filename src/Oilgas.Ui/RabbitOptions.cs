@@ -1,4 +1,4 @@
-namespace Oilgas.WebTier;
+namespace Oilgas.Ui;
 
 /// <summary>Підключення до RabbitMQ (секція "Rabbit"). WebTier — ще один споживач exchange.</summary>
 public sealed class RabbitOptions

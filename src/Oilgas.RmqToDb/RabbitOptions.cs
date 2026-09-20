@@ -1,4 +1,4 @@
-namespace Oilgas.DbWriter;
+namespace Oilgas.RmqToDb;
 
 /// <summary>Підключення до RabbitMQ + topic-exchange (секція "Rabbit").</summary>
 public sealed class RabbitOptions

@@ -1,4 +1,4 @@
-namespace Oilgas.WebTier;
+namespace Oilgas.Ui;
 
 /// <summary>GraphQL mutations — керування пайплайном (проксі на Hardware).</summary>
 public sealed class Mutation

@@ -1,4 +1,4 @@
-using Oilgas.MqttToRabbitMq;
+using Oilgas.MqttToRmq;
 
 var builder = Host.CreateApplicationBuilder(args);
 

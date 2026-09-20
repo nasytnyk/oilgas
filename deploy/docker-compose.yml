@@ -5,7 +5,7 @@
 # Логи:     docker compose -f deploy/docker-compose.yml logs -f dbwriter
 # Зупинка:  docker compose -f deploy/docker-compose.yml down          (-v щоб стерти дані)
 #
-# Морди:  Hardware  http://localhost:8081/   RawLog http://localhost:8082/
+# Морди:  Hardware  http://localhost:8081/
 #         Console   http://localhost:8080/   RabbitMQ UI http://localhost:15672 (oilgas/oilgas)
 
 name: oilgas
@@ -59,9 +59,9 @@ services:
     ports: ["8081:8080"]
     depends_on: [mosquitto]
 
-  mqtt-to-rabbitmq:
-    build: { context: .., dockerfile: src/Oilgas.MqttToRabbitMq/Dockerfile }
-    container_name: oilgas-mqtt-to-rabbitmq
+  mqtt-to-rmq:
+    build: { context: .., dockerfile: src/Oilgas.MqttToRmq/Dockerfile }
+    container_name: oilgas-mqtt-to-rmq
     environment:
       Mqtt__Host: mosquitto
       Mqtt__Port: "1883"
@@ -72,20 +72,10 @@ services:
       mosquitto: { condition: service_started }
       rabbitmq: { condition: service_healthy }
 
-  rawlog:
-    build: { context: .., dockerfile: src/Oilgas.RawLog/Dockerfile }
-    container_name: oilgas-rawlog
-    environment:
-      Rabbit__Host: rabbitmq
-      Rabbit__User: oilgas
-      Rabbit__Password: oilgas
-    ports: ["8082:8080"]
-    depends_on:
-      rabbitmq: { condition: service_healthy }
 
-  dbwriter:
-    build: { context: .., dockerfile: src/Oilgas.DbWriter/Dockerfile }
-    container_name: oilgas-dbwriter
+  rmq-to-db:
+    build: { context: .., dockerfile: src/Oilgas.RmqToDb/Dockerfile }
+    container_name: oilgas-rmq-to-db
     environment:
       Rabbit__Host: rabbitmq
       Rabbit__User: oilgas
@@ -95,9 +85,9 @@ services:
       rabbitmq: { condition: service_healthy }
       mssql: { condition: service_started }
 
-  webtier:
-    build: { context: .., dockerfile: src/Oilgas.WebTier/Dockerfile }
-    container_name: oilgas-webtier
+  ui:
+    build: { context: .., dockerfile: src/Oilgas.Ui/Dockerfile }
+    container_name: oilgas-ui
     environment:
       Rabbit__Host: rabbitmq
       Rabbit__User: oilgas
