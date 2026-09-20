@@ -18,10 +18,12 @@ env:
   MQ_IMAGE: ghcr.io/nasytnyk/oilgas-mosquitto
   WT_IMAGE: ghcr.io/nasytnyk/oilgas-workertier
   RL_IMAGE: ghcr.io/nasytnyk/oilgas-rawlog
+  DW_IMAGE: ghcr.io/nasytnyk/oilgas-dbwriter
   RABBIT_IMAGE: rabbitmq:4-management-alpine
   RG: oilgas-rg
   ENV_NAME: oilgas-env
   RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+  POSTGRES_CONNECTION: ${{ secrets.POSTGRES_CONNECTION }}
 
 jobs:
   deploy:
@@ -75,6 +77,16 @@ jobs:
           tags: |
             ${{ env.RL_IMAGE }}:${{ github.sha }}
             ${{ env.RL_IMAGE }}:latest
+
+      - name: Build & push DbWriter
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Oilgas.DbWriter/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DW_IMAGE }}:${{ github.sha }}
+            ${{ env.DW_IMAGE }}:latest
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -162,3 +174,23 @@ jobs:
               --only-show-errors -o none
           fi
           echo "RawLog URL: https://$(az containerapp show -n oilgas-rawlog -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
+
+      - name: Deploy DbWriter (RabbitMQ -> Postgres microservice)
+        run: |
+          if [ -z "$POSTGRES_CONNECTION" ]; then
+            echo "::warning::Секрет POSTGRES_CONNECTION не заданий — пропускаю DbWriter. Додай Neon-рядок: gh secret set POSTGRES_CONNECTION -R nasytnyk/oilgas"
+            exit 0
+          fi
+          if az containerapp show -n oilgas-dbwriter -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-dbwriter -g "$RG" \
+              --image "$DW_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          else
+            az containerapp create -n oilgas-dbwriter -g "$RG" --environment "$ENV_NAME" \
+              --image "$DW_IMAGE:$GITHUB_SHA" \
+              --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
+              --secrets "rabbit-pass=$RABBITMQ_PASSWORD" "pg-conn=$POSTGRES_CONNECTION" \
+              --env-vars "Rabbit__Host=oilgas-rabbitmq" "Rabbit__Port=5672" \
+                         "Rabbit__User=oilgas" "Rabbit__Password=secretref:rabbit-pass" \
+                         "ConnectionStrings__Postgres=secretref:pg-conn" \
+              --only-show-errors -o none
+          fi
