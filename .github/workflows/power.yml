@@ -1,9 +1,10 @@
 name: Power
 
-# Кнопка «вимкнути / увімкнути» цілу RG (усі Container Apps).
-#   stop   -> --min-replicas 0  (згортається до 0 реплік коли простоює -> компьют ~$0)
-#   resume -> --min-replicas 1  (тримає 1 репліку постійно)
-# (Підкоманд az containerapp stop/start немає у CLI на раннері, тому керуємо репліками.)
+# Кнопка «вимкнути / увімкнути» цілу RG (усі Container Apps) — СТРОГО.
+#   stop   -> ARM-операція .../stop  (повна деалокація: 0 реплік, компьют $0, морда 404)
+#   start  -> ARM-операція .../start (підняти назад до штатних реплік)
+# Викликаємо ARM REST напряму через `az rest`, бо підкоманд `az containerapp stop/start`
+# немає у версії CLI на раннері. Сам застосунок при цьому НЕ видаляється — лише глушиться.
 # Запуск: вкладка Actions -> Power -> Run workflow -> обрати action.
 on:
   workflow_dispatch:
@@ -13,7 +14,7 @@ on:
         type: choice
         required: true
         default: stop
-        options: [stop, resume]
+        options: [stop, start]
 
 permissions:
   id-token: write        # OIDC-логін у Azure
@@ -21,6 +22,7 @@ permissions:
 
 env:
   RG: oilgas-rg
+  API_VERSION: "2024-03-01"
 
 jobs:
   power:
@@ -35,20 +37,22 @@ jobs:
 
       - name: ${{ inputs.action }} all Container Apps
         run: |
-          az extension add --name containerapp --upgrade --only-show-errors || true
-          MIN=${{ inputs.action == 'resume' && '1' || '0' }}
+          set -euo pipefail
+          ACTION="${{ inputs.action }}"
+          SUB=$(az account show --query id -o tsv)
 
           APPS=$(az containerapp list -g "$RG" --query "[].name" -o tsv)
           if [ -z "$APPS" ]; then echo "У RG $RG немає Container Apps."; exit 0; fi
 
           for app in $APPS; do
-            echo "::group::${{ inputs.action }} $app (min-replicas=$MIN)"
-            az containerapp update -n "$app" -g "$RG" \
-              --min-replicas "$MIN" --max-replicas 1 --only-show-errors -o none
-            echo "$app -> min-replicas=$MIN OK"
+            echo "::group::$ACTION $app"
+            az rest --method post \
+              --url "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.App/containerApps/$app/$ACTION?api-version=$API_VERSION" \
+              -o none
+            echo "$app -> $ACTION OK"
             echo "::endgroup::"
           done
 
           echo "=== Підсумок ==="
           az containerapp list -g "$RG" \
-            --query "[].{name:name, running:properties.runningStatus, minReplicas:properties.template.scale.minReplicas}" -o table
+            --query "[].{name:name, running:properties.runningStatus}" -o table
