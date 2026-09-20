@@ -12,11 +12,14 @@ public sealed class Query
         IDbContextFactory<OilgasDbContext> dbf, CancellationToken ct)
     {
         await using var db = await dbf.CreateDbContextAsync(ct);
-        return await db.Ticks
+        var rows = await db.Ticks
             .GroupBy(t => t.DeviceId)
-            .Select(g => new DeviceState(g.Key, g.Max(x => x.Timestamp)))
-            .OrderBy(d => d.DeviceId)
+            .Select(g => new { Id = g.Key, Last = g.Max(x => x.Timestamp) })
             .ToListAsync(ct);
+        return rows
+            .Select(r => new DeviceState(r.Id, r.Last))
+            .OrderBy(d => d.DeviceId)
+            .ToList();
     }
 
     /// <summary>Останні N тіків пристрою (опційно — конкретна метрика).</summary>
