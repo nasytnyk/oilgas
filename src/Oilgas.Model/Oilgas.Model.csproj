@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Oilgas.Measurements\Oilgas.Measurements.csproj" />
+  </ItemGroup>
+
 </Project>

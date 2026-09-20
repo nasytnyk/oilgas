@@ -5,15 +5,19 @@ namespace Oilgas.Hardware;
 
 /// <summary>Одна одиниця обладнання (емулятор): генерує TelemetryMessage і знає свої MQTT-топіки.</summary>
 public sealed class HardwareUnit(
-    string id, string type, string field, string well, IReadOnlyList<MeasurementProfile> profiles)
+    string id,
+    DeviceType type,
+    string field,
+    string well,
+    IReadOnlyList<MeasurementProfile> profiles)
 {
     public string Id { get; } = id;
-    public string Type { get; } = type;
+    public DeviceType Type { get; } = type;
     public string Field { get; } = field;
     public string Well { get; } = well;
 
-    public string TelemetryTopic => $"og/{Field}/{Well}/{Type}/{Id}/telemetry";
-    public string StatusTopic    => $"og/{Field}/{Well}/{Type}/{Id}/status";
+    public string TelemetryTopic => $"oilgas/{Field}/{Well}/{Type.Wire()}/{Id}/telemetry";
+    public string StatusTopic    => $"oilgas/{Field}/{Well}/{Type.Wire()}/{Id}/status";
 
     public TelemetryMessage BuildTelemetry(DateTimeOffset now)
     {
@@ -31,8 +35,9 @@ public sealed class HardwareUnit(
                 Math.Round(value, 2),
                 p.Measurement.UnitOf().Symbol()));
         }
-        return new TelemetryMessage(Id, Type, Field, Well, now, samples);
+        return new TelemetryMessage(Id, Type.Wire(), Field, Well, now, samples);
     }
 
-    public DeviceStatusMessage BuildStatus(string status, DateTimeOffset now) => new(Id, status, now);
+    public DeviceStatusMessage BuildStatus(DeviceState state, DateTimeOffset now) =>
+        new(Id, state.Wire(), now);
 }

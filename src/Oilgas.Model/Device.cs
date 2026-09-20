@@ -1,3 +1,5 @@
+using Oilgas.Measurements;
+
 namespace Oilgas.Model;
 
 /// <summary>Одиниця обладнання. Id — природний ключ із MQTT (напр. "esp-001").</summary>

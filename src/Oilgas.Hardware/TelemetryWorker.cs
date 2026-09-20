@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Options;
 using MQTTnet;
 using MQTTnet.Protocol;
+using Oilgas.Measurements;
 
 namespace Oilgas.Hardware;
 
@@ -29,7 +30,7 @@ public sealed class TelemetryWorker(
         {
             var client = await ConnectAsync(factory, unit, ct);
             if (client is null) continue;                       // не змогли — пропускаємо юніт
-            await PublishAsync(client, unit.StatusTopic, unit.BuildStatus("offline", DateTimeOffset.UtcNow), retain: false, ct);
+            await PublishAsync(client, unit.StatusTopic, unit.BuildStatus(DeviceState.Offline, DateTimeOffset.UtcNow), retain: false, ct);
             _clients.Add((unit, client));
         }
         logger.LogInformation("Hardware connected: {Count} units (telemetry OFF by default)", _clients.Count);
@@ -43,9 +44,9 @@ public sealed class TelemetryWorker(
 
             if (on != prevOn)
             {
-                var status = on ? "online" : "offline";
+                var state = on ? DeviceState.Online : DeviceState.Offline;
                 foreach (var (unit, client) in _clients)
-                    await PublishAsync(client, unit.StatusTopic, unit.BuildStatus(status, DateTimeOffset.UtcNow), retain: false, ct);
+                    await PublishAsync(client, unit.StatusTopic, unit.BuildStatus(state, DateTimeOffset.UtcNow), retain: false, ct);
                 logger.LogInformation("Telemetry {State}", on ? "STARTED" : "STOPPED");
                 prevOn = on;
             }
@@ -66,7 +67,7 @@ public sealed class TelemetryWorker(
     private async Task<IMqttClient?> ConnectAsync(MqttClientFactory factory, HardwareUnit unit, CancellationToken ct)
     {
         var client = factory.CreateMqttClient();
-        var will = JsonSerializer.SerializeToUtf8Bytes(unit.BuildStatus("offline", DateTimeOffset.UtcNow), Json);
+        var will = JsonSerializer.SerializeToUtf8Bytes(unit.BuildStatus(DeviceState.Offline, DateTimeOffset.UtcNow), Json);
 
         var opts = new MqttClientOptionsBuilder()
             .WithTcpServer(_mqtt.Host, _mqtt.Port)
@@ -117,7 +118,7 @@ public sealed class TelemetryWorker(
             {
                 if (client.IsConnected)
                 {
-                    await PublishAsync(client, unit.StatusTopic, unit.BuildStatus("offline", DateTimeOffset.UtcNow), retain: false, CancellationToken.None);
+                    await PublishAsync(client, unit.StatusTopic, unit.BuildStatus(DeviceState.Offline, DateTimeOffset.UtcNow), retain: false, CancellationToken.None);
                     await client.DisconnectAsync();
                 }
             }

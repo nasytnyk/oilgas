@@ -1,5 +1,6 @@
-namespace Oilgas.Model;
+namespace Oilgas.Measurements;
 
+/// <summary>Тип одиниці обладнання. Закритий набір — джерело правди для всіх шарів.</summary>
 public enum DeviceType
 {
     EspPump,     // електроцентробіжний насос

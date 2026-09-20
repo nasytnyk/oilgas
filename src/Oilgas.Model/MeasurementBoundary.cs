@@ -1,3 +1,5 @@
+using Oilgas.Measurements;
+
 namespace Oilgas.Model;
 
 /// <summary>
