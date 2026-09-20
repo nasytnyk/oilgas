@@ -1,39 +1,34 @@
-# Локальна інфраструктура Oilgas.
-# Піднімає 4 зовнішні системи, до яких підключаються адаптери (.NET-хости запускаються окремо через `dotnet run`).
-# Запуск:   docker compose -f deploy/docker-compose.yml up -d
-# Зупинка:  docker compose -f deploy/docker-compose.yml down        (додай -v щоб стерти й дані)
+# Повний локальний стек Oilgas: інфра (Mosquitto, RabbitMQ, SQL Server) + усі .NET-хости.
+# Той самий пайп, що в Azure, за іменами сервісів (паритет із хмарою).
+#
+# Запуск:   docker compose -f deploy/docker-compose.yml up -d --build
+# Логи:     docker compose -f deploy/docker-compose.yml logs -f dbwriter
+# Зупинка:  docker compose -f deploy/docker-compose.yml down          (-v щоб стерти дані)
+#
+# Морди:  Hardware  http://localhost:8081/   RawLog http://localhost:8082/
+#         Console   http://localhost:8080/   RabbitMQ UI http://localhost:15672 (oilgas/oilgas)
 
 name: oilgas
 
-services:
-  # ── PostgreSQL: сховище телеметрії (адаптер Oilgas.Postgres) ──
-  postgres:
-    image: postgres:17-alpine
-    container_name: oilgas-postgres
-    environment:
-      POSTGRES_USER: oilgas
-      POSTGRES_PASSWORD: oilgas      # лише для локалу; у хмарі — з секретів/env (parity)
-      POSTGRES_DB: oilgas
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data   # дані переживають рестарт контейнера
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U oilgas -d oilgas"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+x-sql-conn: &sql-conn "Server=mssql;Database=oilgas;User Id=sa;Password=Oilgas_Local_Pass1;TrustServerCertificate=True;Encrypt=False;Connection Timeout=60;"
 
-  # ── RabbitMQ: внутрішня шина (адаптер Oilgas.RabbitMq) ──
+services:
+  # ── Інфра ───────────────────────────────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: oilgas-mosquitto
+    ports: ["1883:1883"]
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+
   rabbitmq:
-    image: rabbitmq:4-management-alpine   # варіант '-management' дає web-UI і Management API
+    image: rabbitmq:4-management-alpine
     container_name: oilgas-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: oilgas
       RABBITMQ_DEFAULT_PASS: oilgas
-    ports:
-      - "5672:5672"      # AMQP — сюди конектиться RabbitMQ.Client
-      - "15672:15672"    # Management UI + HTTP API (метрики черг для дашборда)
+    ports: ["5672:5672", "15672:15672"]
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -42,33 +37,79 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Mosquitto: MQTT-брокер (той самий образ, що в Azure Container Apps) ──
-  mosquitto:
-    image: eclipse-mosquitto:2
-    container_name: oilgas-mosquitto
-    ports:
-      - "1883:1883"      # MQTT — сюди публікує Hardware і підписується WorkerTier
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: oilgas-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Oilgas_Local_Pass1"   # лише локал; у хмарі — Azure SQL із секрету
+    ports: ["1433:1433"]
     volumes:
-      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - mosquitto-data:/mosquitto/data
+      - mssql-data:/var/opt/mssql
+    # схему створює db-writer (EF Migrate) — БД oilgas з'явиться сама
 
-  # ── Redis: backplane для GraphQL-підписок (адаптер Oilgas.Redis) ──
-  redis:
-    image: redis:7-alpine
-    container_name: oilgas-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # ── .NET-хости (той самий пайп, що в Azure) ─────────────────────────────
+  hardware:
+    build: { context: .., dockerfile: src/Oilgas.Hardware/Dockerfile }
+    container_name: oilgas-hardware
+    environment:
+      Mqtt__Host: mosquitto
+      Mqtt__Port: "1883"
+      Hardware__IntervalSeconds: "5"
+    ports: ["8081:8080"]
+    depends_on: [mosquitto]
 
-# Іменовані volume'и: керуються Docker'ом, дані живуть окремо від контейнерів.
+  workertier:
+    build: { context: .., dockerfile: src/Oilgas.WorkerTier/Dockerfile }
+    container_name: oilgas-workertier
+    environment:
+      Mqtt__Host: mosquitto
+      Mqtt__Port: "1883"
+      Rabbit__Host: rabbitmq
+      Rabbit__User: oilgas
+      Rabbit__Password: oilgas
+    depends_on:
+      mosquitto: { condition: service_started }
+      rabbitmq: { condition: service_healthy }
+
+  rawlog:
+    build: { context: .., dockerfile: src/Oilgas.RawLog/Dockerfile }
+    container_name: oilgas-rawlog
+    environment:
+      Rabbit__Host: rabbitmq
+      Rabbit__User: oilgas
+      Rabbit__Password: oilgas
+    ports: ["8082:8080"]
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+
+  dbwriter:
+    build: { context: .., dockerfile: src/Oilgas.DbWriter/Dockerfile }
+    container_name: oilgas-dbwriter
+    environment:
+      Rabbit__Host: rabbitmq
+      Rabbit__User: oilgas
+      Rabbit__Password: oilgas
+      ConnectionStrings__Sql: *sql-conn
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+      mssql: { condition: service_started }
+
+  webtier:
+    build: { context: .., dockerfile: src/Oilgas.WebTier/Dockerfile }
+    container_name: oilgas-webtier
+    environment:
+      Rabbit__Host: rabbitmq
+      Rabbit__User: oilgas
+      Rabbit__Password: oilgas
+      ConnectionStrings__Sql: *sql-conn
+      Hardware__BaseUrl: "http://hardware:8080"
+    ports: ["8080:8080"]
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+      mssql: { condition: service_started }
+
 volumes:
-  postgres-data:
-  rabbitmq-data:
   mosquitto-data:
-  redis-data:
+  rabbitmq-data:
+  mssql-data:

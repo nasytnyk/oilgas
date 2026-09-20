@@ -36,6 +36,42 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Визначаємо, які сервіси змінились (їхні файли + спільні залежності).
+      # workflow_dispatch або зміна самого workflow/solution -> деплой усього.
+      - name: Detect changed services
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            all:
+              - '.github/workflows/deploy.yml'
+              - 'global.json'
+              - 'Oilgas.slnx'
+            hardware:
+              - 'src/Oilgas.Hardware/**'
+              - 'src/Oilgas.Contracts/**'
+              - 'src/Oilgas.Measurements/**'
+            mosquitto:
+              - 'deploy/mosquitto/**'
+            workertier:
+              - 'src/Oilgas.WorkerTier/**'
+            rawlog:
+              - 'src/Oilgas.RawLog/**'
+            dbwriter:
+              - 'src/Oilgas.DbWriter/**'
+              - 'src/Oilgas.Contracts/**'
+              - 'src/Oilgas.Model/**'
+              - 'src/Oilgas.Measurements/**'
+              - 'src/Oilgas.UseCases/**'
+              - 'src/Oilgas.SqlServer/**'
+            webtier:
+              - 'src/Oilgas.WebTier/**'
+              - 'src/Oilgas.Contracts/**'
+              - 'src/Oilgas.Model/**'
+              - 'src/Oilgas.Measurements/**'
+              - 'src/Oilgas.UseCases/**'
+              - 'src/Oilgas.SqlServer/**'
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -44,6 +80,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push Hardware
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.hardware == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -54,6 +91,7 @@ jobs:
             ${{ env.HW_IMAGE }}:latest
 
       - name: Build & push Mosquitto
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.mosquitto == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: deploy/mosquitto
@@ -64,6 +102,7 @@ jobs:
             ${{ env.MQ_IMAGE }}:latest
 
       - name: Build & push WorkerTier (bridge)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.workertier == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -74,6 +113,7 @@ jobs:
             ${{ env.WT_IMAGE }}:latest
 
       - name: Build & push RawLog
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.rawlog == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -84,6 +124,7 @@ jobs:
             ${{ env.RL_IMAGE }}:latest
 
       - name: Build & push DbWriter
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.dbwriter == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -94,6 +135,7 @@ jobs:
             ${{ env.DW_IMAGE }}:latest
 
       - name: Build & push WebTier (GraphQL + console)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.webtier == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -110,9 +152,12 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Prep az (containerapp extension)
+        run: az extension add --name containerapp --upgrade --only-show-errors || true
+
       - name: Deploy Mosquitto (internal TCP broker)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.mosquitto == 'true' }}
         run: |
-          az extension add --name containerapp --upgrade --only-show-errors || true
           if az containerapp show -n oilgas-mosquitto -g "$RG" -o none 2>/dev/null; then
             az containerapp update -n oilgas-mosquitto -g "$RG" \
               --image "$MQ_IMAGE:$GITHUB_SHA" --only-show-errors -o none
@@ -124,6 +169,7 @@ jobs:
           fi
 
       - name: Deploy Hardware (external web UI + simulator)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.hardware == 'true' }}
         run: |
           if az containerapp show -n oilgas-hardware -g "$RG" -o none 2>/dev/null; then
             az containerapp update -n oilgas-hardware -g "$RG" \
@@ -140,6 +186,7 @@ jobs:
           echo "Hardware URL: https://$(az containerapp show -n oilgas-hardware -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
 
       - name: Deploy RabbitMQ (internal AMQP broker)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' }}
         run: |
           if [ -z "$RABBITMQ_PASSWORD" ]; then
             echo "::error::Секрет RABBITMQ_PASSWORD не заданий. Додай: gh secret set RABBITMQ_PASSWORD -R nasytnyk/oilgas"
@@ -158,6 +205,7 @@ jobs:
           fi
 
       - name: Deploy WorkerTier (Mosquitto -> RabbitMQ bridge)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.workertier == 'true' }}
         run: |
           if az containerapp show -n oilgas-workertier -g "$RG" -o none 2>/dev/null; then
             az containerapp update -n oilgas-workertier -g "$RG" \
@@ -174,6 +222,7 @@ jobs:
           fi
 
       - name: Deploy RawLog (external web UI, RabbitMQ consumer)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.rawlog == 'true' }}
         run: |
           if az containerapp show -n oilgas-rawlog -g "$RG" -o none 2>/dev/null; then
             az containerapp update -n oilgas-rawlog -g "$RG" \
@@ -191,6 +240,7 @@ jobs:
           echo "RawLog URL: https://$(az containerapp show -n oilgas-rawlog -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
 
       - name: Deploy DbWriter (RabbitMQ -> Azure SQL microservice)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.dbwriter == 'true' }}
         run: |
           if [ -z "$SQL_CONNECTION" ]; then
             echo "::warning::Секрет SQL_CONNECTION не заданий — пропускаю DbWriter. Додай: gh secret set SQL_CONNECTION -R nasytnyk/oilgas"
@@ -211,6 +261,7 @@ jobs:
           fi
 
       - name: Deploy WebTier (GraphQL API + engineering console)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.webtier == 'true' }}
         run: |
           if [ -z "$SQL_CONNECTION" ]; then
             echo "::warning::SQL_CONNECTION не заданий — пропускаю WebTier (потрібна БД для queries)."
