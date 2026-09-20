@@ -69,7 +69,7 @@ public sealed class DbWriterConsumer(
     {
         try
         {
-            var msg = JsonSerializer.Deserialize<TelemetryMessage>(ea.Body.Span, Json);
+            var msg = JsonSerializer.Deserialize<TickBatch>(ea.Body.Span, Json);
             if (msg is not null && msg.Samples.Count > 0)
             {
                 var ticks = msg.Samples.Select(s => new Tick

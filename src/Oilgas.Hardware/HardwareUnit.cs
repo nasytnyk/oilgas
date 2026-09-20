@@ -3,7 +3,7 @@ using Oilgas.Model;
 namespace Oilgas.Hardware;
 
 /// <summary>
-/// Одна одиниця обладнання (емулятор): генерує TelemetryMessage і знає свої MQTT-топіки.
+/// Одна одиниця обладнання (емулятор): генерує TickBatch і знає свої MQTT-топіки.
 /// Топологія (type/field/well) — рядки з hardware.json (data-driven), тому тут не enum-и.
 /// </summary>
 public sealed class HardwareUnit(
@@ -23,7 +23,7 @@ public sealed class HardwareUnit(
     public string TelemetryTopic => $"oilgas/{Field}/{Well}/{Type}/{Id}/telemetry";
     public string StatusTopic    => $"oilgas/{Field}/{Well}/{Type}/{Id}/status";
 
-    public TelemetryMessage BuildTelemetry(DateTimeOffset now)
+    public TickBatch BuildTelemetry(DateTimeOffset now)
     {
         var samples = new List<TickSample>(profiles.Count);
         foreach (var p in profiles)
@@ -38,7 +38,7 @@ public sealed class HardwareUnit(
             value = Math.Clamp(value, m.Floor, m.Ceiling);       // не виходимо за фізичні межі
             samples.Add(new TickSample(m.Wire, Math.Round(value, m.Decimals), m.Unit.Symbol()));
         }
-        return new TelemetryMessage(Id, Type, Field, Well, now, samples);
+        return new TickBatch(Id, Type, Field, Well, now, samples);
     }
 
     public DeviceStatusMessage BuildStatus(DeviceState state, DateTimeOffset now) =>
