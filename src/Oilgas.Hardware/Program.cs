@@ -4,12 +4,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<HardwareOptions>(
     builder.Configuration.GetSection(HardwareOptions.SectionName));
-builder.Services.AddSingleton<TelemetrySwitch>();
+builder.Services.AddSingleton<TelemetryToggle>();
 builder.Services.AddHostedService<TelemetryWorker>();
 
 var app = builder.Build();
 
-var telemetry = app.Services.GetRequiredService<TelemetrySwitch>();
+var telemetry = app.Services.GetRequiredService<TelemetryToggle>();
 
 // веб-морда: статичний wwwroot/index.html подається на "/"
 app.UseDefaultFiles();

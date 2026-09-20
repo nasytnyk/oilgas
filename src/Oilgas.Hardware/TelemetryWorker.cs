@@ -7,12 +7,12 @@ namespace Oilgas.Hardware;
 
 /// <summary>
 /// Фонова служба: конектить кожну одиницю обладнання окремим MQTT-клієнтом (LWT per-device),
-/// і публікує телеметрію ЛИШЕ коли TelemetrySwitch увімкнено. Дефолт OFF — не флудить.
+/// і публікує телеметрію ЛИШЕ коли TelemetryToggle увімкнено. Дефолт OFF — не флудить.
 /// Конект стійкий до недоступного брокера (ретрай) — щоб HTTP-хост не крешився в хмарі.
 /// </summary>
 public sealed class TelemetryWorker(
     IOptions<HardwareOptions> options,
-    TelemetrySwitch telemetry,
+    TelemetryToggle telemetry,
     ILogger<TelemetryWorker> logger) : BackgroundService
 {
     private readonly HardwareOptions _opt = options.Value;
