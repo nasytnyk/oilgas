@@ -1,4 +1,4 @@
-namespace Oilgas.Contracts;
+namespace Oilgas.Model;
 
 /// <summary>
 /// Один вимір у складі TelemetryMessage. Кожен TickSample під час інгесту стає рядком Tick у сховищі.

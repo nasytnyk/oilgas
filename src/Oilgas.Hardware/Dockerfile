@@ -3,8 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY global.json ./
-COPY src/Oilgas.Contracts/Oilgas.Contracts.csproj       src/Oilgas.Contracts/
-COPY src/Oilgas.Measurements/Oilgas.Measurements.csproj src/Oilgas.Measurements/
+COPY src/Oilgas.Model/Oilgas.Model.csproj       src/Oilgas.Model/
 COPY src/Oilgas.Hardware/Oilgas.Hardware.csproj         src/Oilgas.Hardware/
 RUN dotnet restore src/Oilgas.Hardware/Oilgas.Hardware.csproj
 

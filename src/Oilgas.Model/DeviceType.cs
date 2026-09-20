@@ -1,4 +1,4 @@
-namespace Oilgas.Measurements;
+namespace Oilgas.Model;
 
 /// <summary>Тип одиниці обладнання. Закритий набір — джерело правди для всіх шарів.</summary>
 public enum DeviceType

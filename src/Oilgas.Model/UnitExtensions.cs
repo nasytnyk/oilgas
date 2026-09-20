@@ -1,4 +1,4 @@
-namespace Oilgas.Measurements;
+namespace Oilgas.Model;
 
 /// <summary>Символ одиниці для дроту/БД — єдина мапа, яку НЕ вивести з назви (Celsius → "C").</summary>
 public static class UnitExtensions

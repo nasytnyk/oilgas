@@ -1,4 +1,4 @@
-namespace Oilgas.Measurements;
+namespace Oilgas.Model;
 
 /// <summary>
 /// DTO для біндингу з measurements.json (mutable-властивості — вимога ConfigurationBinder).

@@ -1,5 +1,5 @@
 using Oilgas.Hardware;
-using Oilgas.Measurements;
+using Oilgas.Model;
 
 var builder = WebApplication.CreateBuilder(args);
 

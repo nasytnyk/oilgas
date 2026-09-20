@@ -1,4 +1,4 @@
-namespace Oilgas.Measurements;
+namespace Oilgas.Model;
 
 /// <summary>
 /// Що вимірюємо — доменний об'єкт з інтринсивними властивостями метрики (одиниця, фізичні межі,

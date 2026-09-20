@@ -1,4 +1,4 @@
-using Oilgas.Measurements;
+using Oilgas.Model;
 
 namespace Oilgas.Hardware;
 

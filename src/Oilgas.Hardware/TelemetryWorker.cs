@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Options;
 using MQTTnet;
 using MQTTnet.Protocol;
-using Oilgas.Measurements;
+using Oilgas.Model;
 
 namespace Oilgas.Hardware;
 

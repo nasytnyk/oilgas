@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Oilgas.Contracts;
 using Oilgas.Model;
 using Oilgas.SqlServer;
 using RabbitMQ.Client;

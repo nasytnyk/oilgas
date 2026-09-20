@@ -1,4 +1,4 @@
-namespace Oilgas.Measurements;
+namespace Oilgas.Model;
 
 /// <summary>
 /// Реєстр метрик, зібраний з визначень (measurements.json). Джерело правди в рантаймі:

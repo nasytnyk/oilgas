@@ -12,8 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Oilgas.Contracts\Oilgas.Contracts.csproj" />
-    <ProjectReference Include="..\Oilgas.Measurements\Oilgas.Measurements.csproj" />
+    <ProjectReference Include="..\Oilgas.Model\Oilgas.Model.csproj" />
   </ItemGroup>
 
   <ItemGroup>

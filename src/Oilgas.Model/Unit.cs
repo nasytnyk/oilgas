@@ -1,4 +1,4 @@
-namespace Oilgas.Measurements;
+namespace Oilgas.Model;
 
 /// <summary>
 /// Одиниця виміру. Закритий набір — джерело правди для всіх шарів.

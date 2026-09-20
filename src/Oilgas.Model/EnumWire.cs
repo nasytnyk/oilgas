@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 
-namespace Oilgas.Measurements;
+namespace Oilgas.Model;
 
 /// <summary>
 /// Єдине правило «enum → рядок для дроту/БД»: назва значення у snake_case

@@ -1,4 +1,4 @@
-namespace Oilgas.Contracts;
+namespace Oilgas.Model;
 
 /// <summary>
 /// Телеметричне повідомлення, що прилітає по MQTT (і далі йде шиною RabbitMQ).

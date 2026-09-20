@@ -1,4 +1,4 @@
-namespace Oilgas.Contracts;
+namespace Oilgas.Model;
 
 /// <summary>
 /// Повідомлення про стан пристрою (MQTT status-топік: retained + LWT).

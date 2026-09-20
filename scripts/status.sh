@@ -3,6 +3,9 @@
 # оцінка free grant Container Apps і метрики Azure SQL. Потребує: az (залогінений), jq, bc.
 set -euo pipefail
 
+# прибирає банер "behavior altered by extension: containerapp" та інші warning'и CLI
+export AZURE_CORE_ONLY_SHOW_ERRORS=true
+
 RG=oilgas-rg
 SUB=$(az account show --query id -o tsv)
 

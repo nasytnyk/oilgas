@@ -1,4 +1,4 @@
-namespace Oilgas.Measurements;
+namespace Oilgas.Model;
 
 /// <summary>
 /// Межа спрацювання (для warning/critical). Min/Max nullable — метрика може мати
