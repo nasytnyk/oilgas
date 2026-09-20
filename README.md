@@ -4,11 +4,14 @@
 global on / off
 - <https://github.com/nasytnyk/oilgas/actions/workflows/power.yml>
 
-view rg 
+resource group on azure 
 - <https://portal.azure.com/#@nasytnykgmail.onmicrosoft.com/resource/subscriptions/b6bc393e-1ed0-46f0-9a4b-f2dd06f06622/resourceGroups/oilgas-rg/overview> 
 
-telemetry stream toggle
+on / off telemetry stream
 - <https://oilgas-hardware.livelyplant-0a492aef.westeurope.azurecontainerapps.io/> 
+
+view raw log
+- <https://oilgas-rawlog.livelyplant-0a492aef.westeurope.azurecontainerapps.io/>
 
 mosquitto
 - internal tcp `oilgas-mosquitto:1883`
