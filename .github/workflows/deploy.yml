@@ -16,8 +16,12 @@ permissions:
 env:
   HW_IMAGE: ghcr.io/nasytnyk/oilgas-hardware
   MQ_IMAGE: ghcr.io/nasytnyk/oilgas-mosquitto
+  WT_IMAGE: ghcr.io/nasytnyk/oilgas-workertier
+  RL_IMAGE: ghcr.io/nasytnyk/oilgas-rawlog
+  RABBIT_IMAGE: rabbitmq:4-management-alpine
   RG: oilgas-rg
   ENV_NAME: oilgas-env
+  RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
 
 jobs:
   deploy:
@@ -51,6 +55,26 @@ jobs:
           tags: |
             ${{ env.MQ_IMAGE }}:${{ github.sha }}
             ${{ env.MQ_IMAGE }}:latest
+
+      - name: Build & push WorkerTier (bridge)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Oilgas.WorkerTier/Dockerfile
+          push: true
+          tags: |
+            ${{ env.WT_IMAGE }}:${{ github.sha }}
+            ${{ env.WT_IMAGE }}:latest
+
+      - name: Build & push RawLog
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Oilgas.RawLog/Dockerfile
+          push: true
+          tags: |
+            ${{ env.RL_IMAGE }}:${{ github.sha }}
+            ${{ env.RL_IMAGE }}:latest
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -87,3 +111,54 @@ jobs:
               --only-show-errors -o none
           fi
           echo "Hardware URL: https://$(az containerapp show -n oilgas-hardware -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
+
+      - name: Deploy RabbitMQ (internal AMQP broker)
+        run: |
+          if [ -z "$RABBITMQ_PASSWORD" ]; then
+            echo "::error::Секрет RABBITMQ_PASSWORD не заданий. Додай: gh secret set RABBITMQ_PASSWORD -R nasytnyk/oilgas"
+            exit 1
+          fi
+          if az containerapp show -n oilgas-rabbitmq -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-rabbitmq -g "$RG" --image "$RABBIT_IMAGE" --only-show-errors -o none
+          else
+            az containerapp create -n oilgas-rabbitmq -g "$RG" --environment "$ENV_NAME" \
+              --image "$RABBIT_IMAGE" \
+              --ingress internal --transport tcp --target-port 5672 --exposed-port 5672 \
+              --min-replicas 1 --max-replicas 1 --cpu 0.5 --memory 1.0Gi \
+              --secrets "rabbit-pass=$RABBITMQ_PASSWORD" \
+              --env-vars "RABBITMQ_DEFAULT_USER=oilgas" "RABBITMQ_DEFAULT_PASS=secretref:rabbit-pass" \
+              --only-show-errors -o none
+          fi
+
+      - name: Deploy WorkerTier (Mosquitto -> RabbitMQ bridge)
+        run: |
+          if az containerapp show -n oilgas-workertier -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-workertier -g "$RG" \
+              --image "$WT_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          else
+            az containerapp create -n oilgas-workertier -g "$RG" --environment "$ENV_NAME" \
+              --image "$WT_IMAGE:$GITHUB_SHA" \
+              --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
+              --secrets "rabbit-pass=$RABBITMQ_PASSWORD" \
+              --env-vars "Mqtt__Host=oilgas-mosquitto" "Mqtt__Port=1883" \
+                         "Rabbit__Host=oilgas-rabbitmq" "Rabbit__Port=5672" \
+                         "Rabbit__User=oilgas" "Rabbit__Password=secretref:rabbit-pass" \
+              --only-show-errors -o none
+          fi
+
+      - name: Deploy RawLog (external web UI, RabbitMQ consumer)
+        run: |
+          if az containerapp show -n oilgas-rawlog -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-rawlog -g "$RG" \
+              --image "$RL_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          else
+            az containerapp create -n oilgas-rawlog -g "$RG" --environment "$ENV_NAME" \
+              --image "$RL_IMAGE:$GITHUB_SHA" \
+              --ingress external --target-port 8080 \
+              --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
+              --secrets "rabbit-pass=$RABBITMQ_PASSWORD" \
+              --env-vars "Rabbit__Host=oilgas-rabbitmq" "Rabbit__Port=5672" \
+                         "Rabbit__User=oilgas" "Rabbit__Password=secretref:rabbit-pass" \
+              --only-show-errors -o none
+          fi
+          echo "RawLog URL: https://$(az containerapp show -n oilgas-rawlog -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
