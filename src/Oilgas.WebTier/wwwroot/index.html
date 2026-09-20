@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="uk" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oilgas Console</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { font-size: 14px; }
+    pre.panel { background:#0b0f14; color:#cfe3ff; padding:10px; border-radius:6px; height:280px;
+                overflow:auto; font-size:12px; margin:0; white-space:pre-wrap; word-break:break-all; }
+    .card-header { font-weight:600; }
+    .mono { font-family: ui-monospace, monospace; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid p-3">
+    <h4 class="mb-3">⛽ Oilgas — інженерна консоль</h4>
+    <div id="root"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/htm/dist/htm.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/graphql-ws/umd/graphql-ws.min.js"></script>
+  <script>
+    const { useState, useEffect, useRef } = React;
+    const html = htm.bind(React.createElement);
+
+    async function gql(query, variables) {
+      const r = await fetch('/graphql', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'accept': 'application/graphql-response+json' },
+        body: JSON.stringify({ query, variables }),
+      });
+      return r.json();
+    }
+    const ts = () => new Date().toISOString().substr(11, 12);
+    const dump = (o) => JSON.stringify(o, null, 2);
+
+    // ── Панель керування (mutation) ──
+    function Control({ log }) {
+      const [busy, setBusy] = useState(false);
+      const [msg, setMsg] = useState('—');
+      async function set(on) {
+        setBusy(true);
+        const r = await gql('mutation($on:Boolean!){ setTelemetry(on:$on) }', { on });
+        const ok = r?.data?.setTelemetry;
+        setMsg(on ? (ok ? 'START надіслано' : 'START не вдався') : (ok ? 'STOP надіслано' : 'STOP не вдався'));
+        log('mutation setTelemetry(' + on + ') => ' + dump(r));
+        setBusy(false);
+      }
+      return html`
+        <div class="card mb-3">
+          <div class="card-header">🎛 Керування</div>
+          <div class="card-body d-flex align-items-center gap-2">
+            <button class="btn btn-success btn-sm" disabled=${busy} onClick=${() => set(true)}>▶ Start telemetry</button>
+            <button class="btn btn-danger btn-sm" disabled=${busy} onClick=${() => set(false)}>⏹ Stop telemetry</button>
+            <span class="text-secondary mono">${msg}</span>
+          </div>
+        </div>`;
+    }
+
+    // ── Живий потік (subscription) ──
+    function LiveFeed() {
+      const [lines, setLines] = useState([]);
+      const [state, setState] = useState('connecting…');
+      const buf = useRef([]);
+      useEffect(() => {
+        const url = location.origin.replace(/^http/, 'ws') + '/graphql';
+        const client = graphqlWs.createClient({ url });
+        const unsub = client.subscribe(
+          { query: 'subscription{ onTelemetry{ at topic payload } }' },
+          {
+            next: (d) => {
+              const e = d.data.onTelemetry;
+              buf.current = [`${ts()}  ${e.topic}\n           ${e.payload}`, ...buf.current].slice(0, 100);
+              setLines(buf.current); setState('● live');
+            },
+            error: (e) => setState('помилка: ' + (e?.message || e)),
+            complete: () => setState('закрито'),
+          });
+        return () => unsub();
+      }, []);
+      return html`
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between">
+            <span>🔴 Live feed (subscription)</span><span class="text-secondary mono">${state}</span>
+          </div>
+          <div class="card-body"><pre class="panel">${lines.join('\n')}</pre></div>
+        </div>`;
+    }
+
+    // ── Пристрої та стани (query) ──
+    function Devices({ log }) {
+      const [out, setOut] = useState('(натисни Оновити)');
+      async function load() {
+        const r = await gql('{ devices { deviceId online lastSeen } }');
+        log('query devices => ' + dump(r));
+        const d = r?.data?.devices;
+        setOut(d ? d.map(x => `${x.online ? '🟢' : '⚪'} ${x.deviceId}   last=${x.lastSeen}`).join('\n') : dump(r));
+      }
+      return html`
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between">
+            <span>🧭 Пристрої та стани</span>
+            <button class="btn btn-outline-light btn-sm py-0" onClick=${load}>Оновити</button>
+          </div>
+          <div class="card-body"><pre class="panel">${out}</pre></div>
+        </div>`;
+    }
+
+    // ── Історія (query з SQL) ──
+    function History({ log }) {
+      const [dev, setDev] = useState('esp_pump-001');
+      const [metric, setMetric] = useState('');
+      const [last, setLast] = useState(20);
+      const [out, setOut] = useState('(обери пристрій і натисни Завантажити)');
+      async function load() {
+        const r = await gql(
+          'query($d:String!,$m:String,$n:Int!){ ticks(deviceId:$d, metric:$m, last:$n){ timestamp metric value unit } }',
+          { d: dev, m: metric || null, n: Number(last) });
+        log('query ticks => ' + dump(r));
+        const t = r?.data?.ticks;
+        setOut(t ? t.map(x => `${x.timestamp}  ${x.metric}=${x.value} ${x.unit}`).join('\n') : dump(r));
+      }
+      return html`
+        <div class="card mb-3">
+          <div class="card-header">🔎 Історія (query)</div>
+          <div class="card-body">
+            <div class="row g-2 mb-2">
+              <div class="col"><input class="form-control form-control-sm mono" value=${dev}
+                   onInput=${e => setDev(e.target.value)} placeholder="deviceId"/></div>
+              <div class="col"><input class="form-control form-control-sm mono" value=${metric}
+                   onInput=${e => setMetric(e.target.value)} placeholder="metric (опц.)"/></div>
+              <div class="col-2"><input type="number" class="form-control form-control-sm" value=${last}
+                   onInput=${e => setLast(e.target.value)}/></div>
+              <div class="col-auto"><button class="btn btn-primary btn-sm" onClick=${load}>Завантажити</button></div>
+            </div>
+            <pre class="panel">${out}</pre>
+          </div>
+        </div>`;
+    }
+
+    // ── Діагностика (query) ──
+    function Diag({ log }) {
+      const [out, setOut] = useState('(натисни Оновити)');
+      async function load() {
+        const r = await gql('{ stats { tickCount deviceCount } }');
+        log('query stats => ' + dump(r));
+        const s = r?.data?.stats;
+        setOut(s ? `рядків Tick у БД: ${s.tickCount}\nунікальних пристроїв: ${s.deviceCount}` : dump(r));
+      }
+      useEffect(() => { load(); }, []);
+      return html`
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between">
+            <span>📊 Діагностика</span>
+            <button class="btn btn-outline-light btn-sm py-0" onClick=${load}>Оновити</button>
+          </div>
+          <div class="card-body"><pre class="panel" style="height:120px">${out}</pre></div>
+        </div>`;
+    }
+
+    // ── Сирий лог GraphQL-відповідей ──
+    function RawLog({ lines }) {
+      return html`
+        <div class="card mb-3">
+          <div class="card-header">🧾 Лог GraphQL (raw)</div>
+          <div class="card-body"><pre class="panel">${lines.join('\n\n')}</pre></div>
+        </div>`;
+    }
+
+    function App() {
+      const [logLines, setLogLines] = useState([]);
+      const log = (s) => setLogLines(p => [`${ts()}  ${s}`, ...p].slice(0, 40));
+      return html`
+        <${Control} log=${log}/>
+        <div class="row">
+          <div class="col-lg-6"><${LiveFeed}/></div>
+          <div class="col-lg-6"><${Devices} log=${log}/></div>
+        </div>
+        <div class="row">
+          <div class="col-lg-7"><${History} log=${log}/></div>
+          <div class="col-lg-5"><${Diag} log=${log}/></div>
+        </div>
+        <${RawLog} lines=${logLines}/>`;
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(html`<${App}/>`);
+  </script>
+</body>
+</html>

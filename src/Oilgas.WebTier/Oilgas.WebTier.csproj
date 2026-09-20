@@ -1,16 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <ItemGroup>
-    <ProjectReference Include="..\Oilgas.UseCases\Oilgas.UseCases.csproj" />
-    <ProjectReference Include="..\Oilgas.SqlServer\Oilgas.SqlServer.csproj" />
-    <ProjectReference Include="..\Oilgas.RabbitMq\Oilgas.RabbitMq.csproj" />
-    <ProjectReference Include="..\Oilgas.Redis\Oilgas.Redis.csproj" />
-  </ItemGroup>
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Oilgas.Contracts\Oilgas.Contracts.csproj" />
+    <ProjectReference Include="..\Oilgas.SqlServer\Oilgas.SqlServer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HotChocolate.AspNetCore" Version="16.6.6" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.2.2" />
+  </ItemGroup>
 
 </Project>

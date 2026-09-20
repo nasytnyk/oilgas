@@ -23,6 +23,7 @@ env:
   WT_IMAGE: ghcr.io/nasytnyk/oilgas-workertier
   RL_IMAGE: ghcr.io/nasytnyk/oilgas-rawlog
   DW_IMAGE: ghcr.io/nasytnyk/oilgas-dbwriter
+  WEB_IMAGE: ghcr.io/nasytnyk/oilgas-webtier
   RABBIT_IMAGE: rabbitmq:4-management-alpine
   RG: oilgas-rg
   ENV_NAME: oilgas-env
@@ -91,6 +92,16 @@ jobs:
           tags: |
             ${{ env.DW_IMAGE }}:${{ github.sha }}
             ${{ env.DW_IMAGE }}:latest
+
+      - name: Build & push WebTier (GraphQL + console)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Oilgas.WebTier/Dockerfile
+          push: true
+          tags: |
+            ${{ env.WEB_IMAGE }}:${{ github.sha }}
+            ${{ env.WEB_IMAGE }}:latest
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -198,3 +209,26 @@ jobs:
                          "ConnectionStrings__Sql=secretref:sql-conn" \
               --only-show-errors -o none
           fi
+
+      - name: Deploy WebTier (GraphQL API + engineering console)
+        run: |
+          if [ -z "$SQL_CONNECTION" ]; then
+            echo "::warning::SQL_CONNECTION не заданий — пропускаю WebTier (потрібна БД для queries)."
+            exit 0
+          fi
+          if az containerapp show -n oilgas-webtier -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-webtier -g "$RG" \
+              --image "$WEB_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+          else
+            az containerapp create -n oilgas-webtier -g "$RG" --environment "$ENV_NAME" \
+              --image "$WEB_IMAGE:$GITHUB_SHA" \
+              --ingress external --target-port 8080 \
+              --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
+              --secrets "rabbit-pass=$RABBITMQ_PASSWORD" "sql-conn=$SQL_CONNECTION" \
+              --env-vars "Rabbit__Host=oilgas-rabbitmq" "Rabbit__Port=5672" \
+                         "Rabbit__User=oilgas" "Rabbit__Password=secretref:rabbit-pass" \
+                         "ConnectionStrings__Sql=secretref:sql-conn" \
+                         "Hardware__BaseUrl=http://oilgas-hardware" \
+              --only-show-errors -o none
+          fi
+          echo "Console URL: https://$(az containerapp show -n oilgas-webtier -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
