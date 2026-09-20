@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Oilgas.UseCases\Oilgas.UseCases.csproj" />
     <ProjectReference Include="..\Oilgas.Model\Oilgas.Model.csproj" />
   </ItemGroup>
 

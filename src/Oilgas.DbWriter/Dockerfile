@@ -6,7 +6,6 @@ COPY global.json ./
 COPY src/Oilgas.Contracts/Oilgas.Contracts.csproj       src/Oilgas.Contracts/
 COPY src/Oilgas.Model/Oilgas.Model.csproj               src/Oilgas.Model/
 COPY src/Oilgas.Measurements/Oilgas.Measurements.csproj src/Oilgas.Measurements/
-COPY src/Oilgas.UseCases/Oilgas.UseCases.csproj         src/Oilgas.UseCases/
 COPY src/Oilgas.SqlServer/Oilgas.SqlServer.csproj         src/Oilgas.SqlServer/
 COPY src/Oilgas.DbWriter/Oilgas.DbWriter.csproj         src/Oilgas.DbWriter/
 RUN dotnet restore src/Oilgas.DbWriter/Oilgas.DbWriter.csproj
