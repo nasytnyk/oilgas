@@ -1,8 +1,8 @@
 namespace Oilgas.Measurements;
 
 /// <summary>
-/// Джерело правди для метрик: канонічна одиниця кожної метрики та рядкові представлення
-/// для дроту (MQTT/JSON) і БД. Enum усередині — людський рядок зовні.
+/// Метрика → її канонічна одиниця та символ одиниці. Рядок самої метрики бери через
+/// <see cref="EnumWire.Wire"/>; тут лишається лише те, що НЕ виводиться з назви enum'а.
 /// </summary>
 public static class MeasurementCatalog
 {
@@ -22,24 +22,7 @@ public static class MeasurementCatalog
         _ => throw new ArgumentOutOfRangeException(nameof(m), m, "Unknown measurement"),
     };
 
-    /// <summary>Стабільний рядок метрики для дроту/БД (snake_case).</summary>
-    public static string Wire(this Measurement m) => m switch
-    {
-        Measurement.IntakePressure => "intake_pressure",
-        Measurement.MotorTemp => "motor_temp",
-        Measurement.Vibration => "vibration",
-        Measurement.Rpm => "rpm",
-        Measurement.TubingPressure => "tubing_pressure",
-        Measurement.CasingPressure => "casing_pressure",
-        Measurement.Temperature => "temperature",
-        Measurement.Pressure => "pressure",
-        Measurement.Level => "level",
-        Measurement.GasFlow => "gas_flow",
-        Measurement.DischargePressure => "discharge_pressure",
-        _ => throw new ArgumentOutOfRangeException(nameof(m), m, "Unknown measurement"),
-    };
-
-    /// <summary>Символ одиниці для дроту/БД (bar, C, %, mm/s, rpm, m3/h).</summary>
+    /// <summary>Символ одиниці для дроту/БД (bar, C, %, mm/s, rpm, m3/h) — не виводиться з назви.</summary>
     public static string Symbol(this Unit u) => u switch
     {
         Unit.Bar => "bar",

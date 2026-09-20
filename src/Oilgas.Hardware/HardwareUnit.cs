@@ -5,16 +5,18 @@ namespace Oilgas.Hardware;
 
 /// <summary>Одна одиниця обладнання (емулятор): генерує TelemetryMessage і знає свої MQTT-топіки.</summary>
 public sealed class HardwareUnit(
-    string id,
     DeviceType type,
+    int number,
     Field field,
     Well well,
     IReadOnlyList<MeasurementProfile> profiles)
 {
-    public string Id { get; } = id;
     public DeviceType Type { get; } = type;
     public Field Field { get; } = field;
     public Well Well { get; } = well;
+
+    /// <summary>Id виводиться з типу пристрою + номера: esp_pump-001.</summary>
+    public string Id { get; } = $"{type.Wire()}-{number:D3}";
 
     public string TelemetryTopic => $"oilgas/{Field.Wire()}/{Well.Wire()}/{Type.Wire()}/{Id}/telemetry";
     public string StatusTopic    => $"oilgas/{Field.Wire()}/{Well.Wire()}/{Type.Wire()}/{Id}/status";
