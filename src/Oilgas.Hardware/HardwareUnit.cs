@@ -7,17 +7,17 @@ namespace Oilgas.Hardware;
 public sealed class HardwareUnit(
     string id,
     DeviceType type,
-    string field,
-    string well,
+    Field field,
+    Well well,
     IReadOnlyList<MeasurementProfile> profiles)
 {
     public string Id { get; } = id;
     public DeviceType Type { get; } = type;
-    public string Field { get; } = field;
-    public string Well { get; } = well;
+    public Field Field { get; } = field;
+    public Well Well { get; } = well;
 
-    public string TelemetryTopic => $"oilgas/{Field}/{Well}/{Type.Wire()}/{Id}/telemetry";
-    public string StatusTopic    => $"oilgas/{Field}/{Well}/{Type.Wire()}/{Id}/status";
+    public string TelemetryTopic => $"oilgas/{Field.Wire()}/{Well.Wire()}/{Type.Wire()}/{Id}/telemetry";
+    public string StatusTopic    => $"oilgas/{Field.Wire()}/{Well.Wire()}/{Type.Wire()}/{Id}/status";
 
     public TelemetryMessage BuildTelemetry(DateTimeOffset now)
     {
@@ -35,7 +35,7 @@ public sealed class HardwareUnit(
                 Math.Round(value, 2),
                 p.Measurement.UnitOf().Symbol()));
         }
-        return new TelemetryMessage(Id, Type.Wire(), Field, Well, now, samples);
+        return new TelemetryMessage(Id, Type.Wire(), Field.Wire(), Well.Wire(), now, samples);
     }
 
     public DeviceStatusMessage BuildStatus(DeviceState state, DateTimeOffset now) =>
