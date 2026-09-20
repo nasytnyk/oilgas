@@ -11,11 +11,13 @@ namespace Oilgas.Hardware;
 /// Конект стійкий до недоступного брокера (ретрай) — щоб HTTP-хост не крешився в хмарі.
 /// </summary>
 public sealed class TelemetryWorker(
-    IOptions<HardwareOptions> options,
+    IOptions<MqttOptions> mqttOptions,
+    IOptions<HardwareOptions> hardwareOptions,
     TelemetryToggle telemetry,
     ILogger<TelemetryWorker> logger) : BackgroundService
 {
-    private readonly HardwareOptions _opt = options.Value;
+    private readonly MqttOptions _mqtt = mqttOptions.Value;
+    private readonly HardwareOptions _opt = hardwareOptions.Value;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly List<(HardwareUnit Unit, IMqttClient Client)> _clients = [];
 
@@ -66,20 +68,14 @@ public sealed class TelemetryWorker(
         var client = factory.CreateMqttClient();
         var will = JsonSerializer.SerializeToUtf8Bytes(unit.BuildStatus("offline", DateTimeOffset.UtcNow), Json);
 
-        var builder = new MqttClientOptionsBuilder()
-            .WithTcpServer(_opt.BrokerHost, _opt.BrokerPort)
+        var opts = new MqttClientOptionsBuilder()
+            .WithTcpServer(_mqtt.Host, _mqtt.Port)
             .WithClientId($"oilgas-hw-{unit.Id}")
             .WithWillTopic(unit.StatusTopic)
             .WithWillPayload(will)
             .WithWillRetain(false)
-            .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce);
-
-        if (_opt.UseTls)
-            builder.WithTlsOptions(o => o.UseTls(true));
-        if (!string.IsNullOrWhiteSpace(_opt.Username))
-            builder.WithCredentials(_opt.Username, _opt.Password ?? string.Empty);
-
-        var opts = builder.Build();
+            .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+            .Build();
 
         for (var attempt = 1; attempt <= 10 && !ct.IsCancellationRequested; attempt++)
         {

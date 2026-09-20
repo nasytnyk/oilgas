@@ -83,7 +83,7 @@ jobs:
               --image "$HW_IMAGE:$GITHUB_SHA" \
               --ingress external --target-port 8080 \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
-              --env-vars "Hardware__BrokerHost=oilgas-mosquitto" "Hardware__BrokerPort=1883" "Hardware__IntervalSeconds=5" \
+              --env-vars "Mqtt__Host=oilgas-mosquitto" "Mqtt__Port=1883" "Hardware__IntervalSeconds=5" \
               --only-show-errors -o none
           fi
           echo "Hardware URL: https://$(az containerapp show -n oilgas-hardware -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"

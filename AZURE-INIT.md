@@ -42,7 +42,7 @@ gh secret set AZURE_SUBSCRIPTION_ID -b "$SUB_ID"                                
 Далі все робить `.github/workflows/deploy.yml` на кожен push у `main`:
 1. збирає образи `oilgas-hardware` і `oilgas-mosquitto`, пушить у GHCR;
 2. `azure/login` (OIDC);
-3. create-or-update **Mosquitto** (internal TCP :1883) і **Hardware** (external :8080, `Hardware__BrokerHost=oilgas-mosquitto`).
+3. create-or-update **Mosquitto** (internal TCP :1883) і **Hardware** (external :8080, `Mqtt__Host=oilgas-mosquitto`).
 
 **Одноразово:** зробити GHCR-пакети `oilgas-hardware` і `oilgas-mosquitto` **public** (Package settings → Change visibility), щоб Container Apps тягнув без кредів.
 
@@ -61,7 +61,7 @@ az containerapp create -n oilgas-hardware -g oilgas-rg --environment oilgas-env 
   --image ghcr.io/nasytnyk/oilgas-hardware:latest \
   --ingress external --target-port 8080 \
   --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
-  --env-vars Hardware__BrokerHost=oilgas-mosquitto Hardware__BrokerPort=1883 Hardware__IntervalSeconds=5
+  --env-vars Mqtt__Host=oilgas-mosquitto Mqtt__Port=1883 Hardware__IntervalSeconds=5
 ```
 
 ## Знесення

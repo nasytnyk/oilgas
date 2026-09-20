@@ -2,6 +2,8 @@ using Oilgas.Hardware;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<MqttOptions>(
+    builder.Configuration.GetSection(MqttOptions.SectionName));
 builder.Services.Configure<HardwareOptions>(
     builder.Configuration.GetSection(HardwareOptions.SectionName));
 builder.Services.AddSingleton<TelemetryToggle>();
