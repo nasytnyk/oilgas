@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Oilgas.UseCases\Oilgas.UseCases.csproj" />
-    <ProjectReference Include="..\Oilgas.Postgres\Oilgas.Postgres.csproj" />
+    <ProjectReference Include="..\Oilgas.SqlServer\Oilgas.SqlServer.csproj" />
     <ProjectReference Include="..\Oilgas.RabbitMq\Oilgas.RabbitMq.csproj" />
     <ProjectReference Include="..\Oilgas.Redis\Oilgas.Redis.csproj" />
   </ItemGroup>

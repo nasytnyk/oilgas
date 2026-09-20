@@ -1,14 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Oilgas.DbWriter;
-using Oilgas.Postgres;
+using Oilgas.SqlServer;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.Configure<RabbitOptions>(builder.Configuration.GetSection(RabbitOptions.SectionName));
 
-var connectionString = builder.Configuration.GetConnectionString("Postgres")
-    ?? throw new InvalidOperationException("ConnectionStrings:Postgres не заданий (Neon connection string).");
-builder.Services.AddDbContext<OilgasDbContext>(o => o.UseNpgsql(connectionString));
+var connectionString = builder.Configuration.GetConnectionString("Sql")
+    ?? throw new InvalidOperationException("ConnectionStrings:Sql не заданий (Azure SQL connection string).");
+builder.Services.AddDbContext<OilgasDbContext>(o => o.UseSqlServer(connectionString));
 
 builder.Services.AddHostedService<DbWriterConsumer>();
 

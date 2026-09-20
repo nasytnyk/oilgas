@@ -3,14 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Oilgas.Contracts;
 using Oilgas.Model;
-using Oilgas.Postgres;
+using Oilgas.SqlServer;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
 namespace Oilgas.DbWriter;
 
 /// <summary>
-/// Мікросервіс запису: споживає телеметрію з RabbitMQ і пише її рядками Tick у Postgres (EF Core).
+/// Мікросервіс запису: споживає телеметрію з RabbitMQ і пише її рядками Tick в Azure SQL (EF Core).
 /// Durable queue + manual ack: якщо запис у БД не вдався або консюмер упав — повідомлення
 /// повертається в чергу й буде оброблене знову (нічого не губимо на рестарті консюмера).
 /// </summary>
@@ -105,7 +105,7 @@ public sealed class DbWriterConsumer(
             {
                 using var scope = scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<OilgasDbContext>().Database.MigrateAsync(ct);
-                logger.LogInformation("Postgres schema ready (migrations applied)");
+                logger.LogInformation("SQL schema ready (migrations applied)");
                 return;
             }
             catch (Exception ex)

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace Oilgas.Postgres;
+namespace Oilgas.SqlServer;
 
 /// <summary>
 /// Потрібна лише інструменту `dotnet ef` (design-time): дає йому спосіб створити контекст
@@ -14,10 +14,10 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<OilgasDbCo
     {
         var connectionString =
             Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")
-            ?? "Host=localhost;Port=5432;Database=oilgas;Username=oilgas;Password=oilgas";
+            ?? "Server=localhost,1433;Database=oilgas;User Id=sa;Password=Oilgas!Local1;TrustServerCertificate=True";
 
         var options = new DbContextOptionsBuilder<OilgasDbContext>()
-            .UseNpgsql(connectionString)
+            .UseSqlServer(connectionString)
             .Options;
 
         return new OilgasDbContext(options);

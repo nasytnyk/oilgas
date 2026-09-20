@@ -8,7 +8,7 @@
     <Project Path="src/Oilgas.DbWriter/Oilgas.DbWriter.csproj" />
     <Project Path="src/Oilgas.Measurements/Oilgas.Measurements.csproj" />
     <Project Path="src/Oilgas.Model/Oilgas.Model.csproj" />
-    <Project Path="src/Oilgas.Postgres/Oilgas.Postgres.csproj" />
+    <Project Path="src/Oilgas.SqlServer/Oilgas.SqlServer.csproj" />
     <Project Path="src/Oilgas.RawLog/Oilgas.RawLog.csproj" />
     <Project Path="src/Oilgas.WebTier/Oilgas.WebTier.csproj" />
     <Project Path="src/Oilgas.WorkerTier/Oilgas.WorkerTier.csproj" />

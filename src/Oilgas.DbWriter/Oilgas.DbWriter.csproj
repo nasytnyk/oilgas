@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Oilgas.Contracts\Oilgas.Contracts.csproj" />
-    <ProjectReference Include="..\Oilgas.Postgres\Oilgas.Postgres.csproj" />
+    <ProjectReference Include="..\Oilgas.SqlServer\Oilgas.SqlServer.csproj" />
   </ItemGroup>
 
 </Project>

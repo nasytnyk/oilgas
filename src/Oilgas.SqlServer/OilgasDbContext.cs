@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Oilgas.Model;
 
-namespace Oilgas.Postgres;
+namespace Oilgas.SqlServer;
 
 /// <summary>
 /// EF Core контекст. Мапить POCO-сутності Oilgas.Model на таблиці Postgres.

@@ -1,10 +1,9 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Oilgas.Postgres.Migrations
+namespace Oilgas.SqlServer.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
@@ -17,13 +16,13 @@ namespace Oilgas.Postgres.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    DeviceId = table.Column<string>(type: "text", nullable: false),
-                    Metric = table.Column<string>(type: "text", nullable: false),
-                    Value = table.Column<double>(type: "double precision", nullable: false),
-                    Severity = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
-                    Timestamp = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    Status = table.Column<string>(type: "text", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    DeviceId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Metric = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Value = table.Column<double>(type: "float", nullable: false),
+                    Severity = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Timestamp = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -34,11 +33,11 @@ namespace Oilgas.Postgres.Migrations
                 name: "Mines",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    Field = table.Column<string>(type: "text", nullable: false),
-                    Well = table.Column<string>(type: "text", nullable: false)
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Field = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Well = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -50,12 +49,12 @@ namespace Oilgas.Postgres.Migrations
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    DeviceId = table.Column<string>(type: "text", nullable: false),
-                    Metric = table.Column<string>(type: "text", nullable: false),
-                    Value = table.Column<double>(type: "double precision", nullable: false),
-                    Unit = table.Column<string>(type: "text", nullable: false),
-                    Timestamp = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    DeviceId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Metric = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Value = table.Column<double>(type: "float", nullable: false),
+                    Unit = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Timestamp = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -66,13 +65,13 @@ namespace Oilgas.Postgres.Migrations
                 name: "Devices",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "text", nullable: false),
-                    MineId = table.Column<int>(type: "integer", nullable: false),
-                    Type = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    Serial = table.Column<string>(type: "text", nullable: true),
-                    IsOnline = table.Column<bool>(type: "boolean", nullable: false),
-                    LastSeenAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    MineId = table.Column<int>(type: "int", nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Serial = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IsOnline = table.Column<bool>(type: "bit", nullable: false),
+                    LastSeenAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
                 },
                 constraints: table =>
                 {
