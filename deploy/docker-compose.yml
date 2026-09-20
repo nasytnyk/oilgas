@@ -59,9 +59,9 @@ services:
     ports: ["8081:8080"]
     depends_on: [mosquitto]
 
-  workertier:
-    build: { context: .., dockerfile: src/Oilgas.WorkerTier/Dockerfile }
-    container_name: oilgas-workertier
+  mqtt-to-rabbitmq:
+    build: { context: .., dockerfile: src/Oilgas.MqttToRabbitMq/Dockerfile }
+    container_name: oilgas-mqtt-to-rabbitmq
     environment:
       Mqtt__Host: mosquitto
       Mqtt__Port: "1883"

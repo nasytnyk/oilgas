@@ -8,6 +8,6 @@
     <Project Path="src/Oilgas.SqlServer/Oilgas.SqlServer.csproj" />
     <Project Path="src/Oilgas.RawLog/Oilgas.RawLog.csproj" />
     <Project Path="src/Oilgas.WebTier/Oilgas.WebTier.csproj" />
-    <Project Path="src/Oilgas.WorkerTier/Oilgas.WorkerTier.csproj" />
+    <Project Path="src/Oilgas.MqttToRabbitMq/Oilgas.MqttToRabbitMq.csproj" />
   </Folder>
 </Solution>

@@ -4,7 +4,7 @@ using MQTTnet;
 using MQTTnet.Protocol;
 using RabbitMQ.Client;
 
-namespace Oilgas.WorkerTier;
+namespace Oilgas.MqttToRabbitMq;
 
 /// <summary>
 /// Міст Mosquitto → RabbitMQ. Підписується на MQTT-топіки і ПЕРЕКЛАДАЄ байти повідомлення

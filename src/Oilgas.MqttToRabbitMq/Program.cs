@@ -1,4 +1,4 @@
-using Oilgas.WorkerTier;
+using Oilgas.MqttToRabbitMq;
 
 var builder = Host.CreateApplicationBuilder(args);
 

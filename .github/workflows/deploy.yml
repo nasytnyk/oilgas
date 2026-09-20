@@ -20,7 +20,7 @@ permissions:
 env:
   HW_IMAGE: ghcr.io/nasytnyk/oilgas-hardware
   MQ_IMAGE: ghcr.io/nasytnyk/oilgas-mosquitto
-  WT_IMAGE: ghcr.io/nasytnyk/oilgas-workertier
+  WT_IMAGE: ghcr.io/nasytnyk/oilgas-mqtt-to-rabbitmq
   RL_IMAGE: ghcr.io/nasytnyk/oilgas-rawlog
   DW_IMAGE: ghcr.io/nasytnyk/oilgas-dbwriter
   WEB_IMAGE: ghcr.io/nasytnyk/oilgas-webtier
@@ -53,8 +53,8 @@ jobs:
               - 'src/Oilgas.Measurements/**'
             mosquitto:
               - 'deploy/mosquitto/**'
-            workertier:
-              - 'src/Oilgas.WorkerTier/**'
+            bridge:
+              - 'src/Oilgas.MqttToRabbitMq/**'
             rawlog:
               - 'src/Oilgas.RawLog/**'
             dbwriter:
@@ -62,14 +62,12 @@ jobs:
               - 'src/Oilgas.Contracts/**'
               - 'src/Oilgas.Model/**'
               - 'src/Oilgas.Measurements/**'
-              - 'src/Oilgas.UseCases/**'
               - 'src/Oilgas.SqlServer/**'
             webtier:
               - 'src/Oilgas.WebTier/**'
               - 'src/Oilgas.Contracts/**'
               - 'src/Oilgas.Model/**'
               - 'src/Oilgas.Measurements/**'
-              - 'src/Oilgas.UseCases/**'
               - 'src/Oilgas.SqlServer/**'
 
       - name: Log in to GHCR
@@ -101,12 +99,12 @@ jobs:
             ${{ env.MQ_IMAGE }}:${{ github.sha }}
             ${{ env.MQ_IMAGE }}:latest
 
-      - name: Build & push WorkerTier (bridge)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.workertier == 'true' }}
+      - name: Build & push MqttToRabbitMq (bridge)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.bridge == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: src/Oilgas.WorkerTier/Dockerfile
+          file: src/Oilgas.MqttToRabbitMq/Dockerfile
           push: true
           tags: |
             ${{ env.WT_IMAGE }}:${{ github.sha }}
@@ -204,14 +202,14 @@ jobs:
               --only-show-errors -o none
           fi
 
-      - name: Deploy WorkerTier (Mosquitto -> RabbitMQ bridge)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.workertier == 'true' }}
+      - name: Deploy MqttToRabbitMq (Mosquitto -> RabbitMQ bridge)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.bridge == 'true' }}
         run: |
-          if az containerapp show -n oilgas-workertier -g "$RG" -o none 2>/dev/null; then
-            az containerapp update -n oilgas-workertier -g "$RG" \
+          if az containerapp show -n oilgas-mqtt-to-rabbitmq -g "$RG" -o none 2>/dev/null; then
+            az containerapp update -n oilgas-mqtt-to-rabbitmq -g "$RG" \
               --image "$WT_IMAGE:$GITHUB_SHA" --only-show-errors -o none
           else
-            az containerapp create -n oilgas-workertier -g "$RG" --environment "$ENV_NAME" \
+            az containerapp create -n oilgas-mqtt-to-rabbitmq -g "$RG" --environment "$ENV_NAME" \
               --image "$WT_IMAGE:$GITHUB_SHA" \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
               --secrets "rabbit-pass=$RABBITMQ_PASSWORD" \
