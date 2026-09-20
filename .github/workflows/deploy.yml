@@ -6,6 +6,10 @@ name: Deploy
 on:
   push:
     branches: [ main ]
+    paths-ignore:        # зміни лише в доках/скриптах не тригерять деплой
+      - '**.md'
+      - 'scripts/**'
+      - 'problems/**'
   workflow_dispatch:
 
 permissions:
