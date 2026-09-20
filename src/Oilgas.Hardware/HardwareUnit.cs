@@ -1,10 +1,11 @@
 using Oilgas.Contracts;
+using Oilgas.Measurements;
 
 namespace Oilgas.Hardware;
 
 /// <summary>Одна одиниця обладнання (емулятор): генерує TelemetryMessage і знає свої MQTT-топіки.</summary>
 public sealed class HardwareUnit(
-    string id, string type, string field, string well, IReadOnlyList<MetricProfile> metrics)
+    string id, string type, string field, string well, IReadOnlyList<MeasurementProfile> profiles)
 {
     public string Id { get; } = id;
     public string Type { get; } = type;
@@ -16,12 +17,19 @@ public sealed class HardwareUnit(
 
     public TelemetryMessage BuildTelemetry(DateTimeOffset now)
     {
-        var samples = new List<TickSample>(metrics.Count);
-        foreach (var m in metrics)
+        var samples = new List<TickSample>(profiles.Count);
+        foreach (var p in profiles)
         {
-            var value = m.Baseline + (Random.Shared.NextDouble() - 0.5) * 2 * m.Noise;
-            if (Random.Shared.NextDouble() < m.SpikeChance) value += m.SpikeDelta;
-            samples.Add(new TickSample(m.Name, Math.Round(value, 2), m.Unit));
+            var value = p.Baseline + (Random.Shared.NextDouble() - 0.5) * 2 * p.Noise;
+            if (Random.Shared.NextDouble() < p.SpikeChance)
+            {
+                var sign = Random.Shared.Next(2) == 0 ? -1 : 1; // сплеск у довільну сторону
+                value *= 1 + sign * p.SpikePercent;
+            }
+            samples.Add(new TickSample(
+                p.Measurement.Wire(),
+                Math.Round(value, 2),
+                p.Measurement.UnitOf().Symbol()));
         }
         return new TelemetryMessage(Id, Type, Field, Well, now, samples);
     }

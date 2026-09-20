@@ -6,8 +6,8 @@
 
 | Що | Посилання |
 |---|---|
-| 🖥️ Веб-морда Hardware (симулятор + кнопки ON/OFF) | <https://oilgas-hardware.livelyplant-0a492aef.westeurope.azurecontainerapps.io/> |
-| 📡 Mosquitto (брокер) | internal TCP `oilgas-mosquitto:1883` — вебморди нема; [ресурс у Portal](https://portal.azure.com/#@nasytnykgmail.onmicrosoft.com/resource/subscriptions/b6bc393e-1ed0-46f0-9a4b-f2dd06f06622/resourceGroups/oilgas-rg/providers/Microsoft.App/containerApps/oilgas-mosquitto/overview) |
+| webmorda | <https://oilgas-hardware.livelyplant-0a492aef.westeurope.azurecontainerapps.io/> |
+| mosquitto | internal TCP `oilgas-mosquitto:1883` [resource](https://portal.azure.com/#@nasytnykgmail.onmicrosoft.com/resource/subscriptions/b6bc393e-1ed0-46f0-9a4b-f2dd06f06622/resourceGroups/oilgas-rg/providers/Microsoft.App/containerApps/oilgas-mosquitto/overview) |
 | ⏻ Power OFF / ON (усі Container Apps у RG) | [Actions → Power → Run workflow](https://github.com/nasytnyk/oilgas/actions/workflows/power.yml) |
 | 📦 Ресурсна група `oilgas-rg` | [Azure Portal](https://portal.azure.com/#@nasytnykgmail.onmicrosoft.com/resource/subscriptions/b6bc393e-1ed0-46f0-9a4b-f2dd06f06622/resourceGroups/oilgas-rg/overview) |
 

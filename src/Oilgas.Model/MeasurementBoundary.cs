@@ -1,11 +1,9 @@
 namespace Oilgas.Model;
 
 /// <summary>
-/// Пороги для метрики певного типу обладнання (реф-дані в БД).
-/// Парна до Hardware.MetricProfile за іменем метрики: profile — ЯК генерувати, boundary — КОЛИ аларм.
-/// null з боку = немає межі з цього боку (односторонній аларм).
+/// Pair to MeasurementProfile
 /// </summary>
-public class MetricBoundary
+public class MeasurementBoundary
 {
     public int Id { get; set; }
     public DeviceType DeviceType { get; set; }
