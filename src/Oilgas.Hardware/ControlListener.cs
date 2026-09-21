@@ -15,7 +15,7 @@ public sealed class ControlListener(
     TelemetryToggle toggle,
     ILogger<ControlListener> logger) : BackgroundService
 {
-    public const string CommandTopic = "oilgas/control/telemetry";
+    public const string CommandTopic = "control/telemetry";
     private readonly MqttOptions _mqtt = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken ct)

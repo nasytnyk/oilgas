@@ -5,13 +5,13 @@ using MQTTnet.Protocol;
 namespace Oilgas.Ui;
 
 /// <summary>
-/// Публікує команди керування залізом у MQTT (топік oilgas/control/telemetry, "on"/"off").
+/// Публікує команди керування залізом у MQTT (топік control/telemetry, "on"/"off").
 /// Так Ui вмикає/вимикає телеметрію без HTTP до Hardware — усе через ту саму MQTT-шину.
 /// Singleton: конектиться раз (лениво) і тримає з'єднання.
 /// </summary>
 public sealed class MqttCommandSender(IOptions<MqttOptions> options) : IAsyncDisposable
 {
-    public const string CommandTopic = "oilgas/control/telemetry";
+    public const string CommandTopic = "control/telemetry";
 
     private readonly MqttOptions _mqtt = options.Value;
     private readonly IMqttClient _client = new MqttClientFactory().CreateMqttClient();
