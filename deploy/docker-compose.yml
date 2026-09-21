@@ -91,11 +91,13 @@ services:
       Rabbit__User: oilgas
       Rabbit__Password: oilgas
       ConnectionStrings__Sql: *sql-conn
-      Hardware__BaseUrl: "http://hardware:8080"
+      Mqtt__Host: mosquitto
+      Mqtt__Port: "1883"
     ports: ["8080:8080"]
     depends_on:
       rabbitmq: { condition: service_healthy }
       mssql: { condition: service_started }
+      mosquitto: { condition: service_started }
 
 volumes:
   mosquitto-data:

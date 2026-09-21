@@ -1,15 +1,12 @@
 namespace Oilgas.Ui;
 
-/// <summary>GraphQL mutations — керування пайплайном (проксі на Hardware).</summary>
+/// <summary>GraphQL mutations — керування пайплайном (команда в MQTT).</summary>
 public sealed class Mutation
 {
-    /// <summary>Увімкнути/вимкнути телеметрію: проксі на /start|/stop Hardware.</summary>
-    public async Task<bool> SetTelemetry(
-        bool on, IHttpClientFactory factory, IConfiguration cfg, CancellationToken ct)
+    /// <summary>Увімкнути/вимкнути телеметрію: публікує "on"/"off" у командний MQTT-топік.</summary>
+    public async Task<bool> SetTelemetry(bool on, MqttCommandSender sender, CancellationToken ct)
     {
-        var baseUrl = cfg["Hardware:BaseUrl"] ?? "http://oilgas-hardware";
-        var client = factory.CreateClient();
-        var resp = await client.PostAsync($"{baseUrl}/{(on ? "start" : "stop")}", null, ct);
-        return resp.IsSuccessStatusCode;
+        await sender.SetTelemetryAsync(on, ct);
+        return true;
     }
 }

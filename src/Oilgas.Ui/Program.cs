@@ -5,13 +5,15 @@ using Oilgas.Ui;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<RabbitOptions>(builder.Configuration.GetSection(RabbitOptions.SectionName));
+builder.Services.Configure<MqttOptions>(builder.Configuration.GetSection(MqttOptions.SectionName));
 
 // читання Azure SQL для queries (pooled — HotChocolate резолвить контекст per-field)
 var connectionString = builder.Configuration.GetConnectionString("Sql")
     ?? throw new InvalidOperationException("ConnectionStrings:Sql не заданий (Azure SQL).");
 builder.Services.AddPooledDbContextFactory<OilgasDbContext>(o => o.UseSqlServer(connectionString));
 
-builder.Services.AddHttpClient();
+// публікатор команд керування залізом у MQTT (для mutation setTelemetry)
+builder.Services.AddSingleton<MqttCommandSender>();
 
 builder.Services
     .AddGraphQLServer()

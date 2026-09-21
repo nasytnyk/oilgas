@@ -6,9 +6,5 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- словник метрик поряд із кодом; копіюється у вивід, звідти читає IConfiguration -->
-    <Content Include="measurements.json" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
 
 </Project>
