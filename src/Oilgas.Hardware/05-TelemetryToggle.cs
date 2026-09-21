@@ -1,8 +1,9 @@
 namespace Oilgas.Hardware;
 
 /// <summary>
-/// Спільний перемикач потоку телеметрії (on/off). Дефолт — OFF (не флудить).
-/// Керується HTTP-ендпоінтами /start і /stop; читається фоновим TelemetryWorker.
+/// Triggered from:
+/// - ControlListener
+/// - TelemetryWorker
 /// </summary>
 public sealed class TelemetryToggle
 {

@@ -36,7 +36,7 @@ public sealed class HardwareUnit(
                 value *= 1 + sign * p.SpikePercent;
             }
             value = Math.Clamp(value, m.Floor, m.Ceiling);       // не виходимо за фізичні межі
-            samples.Add(new TickSample(m.Wire, Math.Round(value, m.Decimals), m.Unit.Symbol()));
+            samples.Add(new TickSample(m.Wire, Math.Round(value, m.Decimals), m.Unit.Symbol())); // ось тут народжується тік
         }
         return new TickBatch(Id, Type, Field, Well, now, samples);
     }
