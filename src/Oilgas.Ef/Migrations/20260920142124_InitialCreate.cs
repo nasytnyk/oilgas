@@ -3,26 +3,13 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Oilgas.SqlServer.Migrations
+namespace Oilgas.Ef.Migrations
 {
     /// <inheritdoc />
-    public partial class DropUnusedTables : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropTable(
-                name: "Anomalies");
-
-            migrationBuilder.DropTable(
-                name: "Devices");
-
-            migrationBuilder.DropTable(
-                name: "Mines");
-        }
-
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
                 name: "Anomalies",
@@ -32,10 +19,10 @@ namespace Oilgas.SqlServer.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     DeviceId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Metric = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Value = table.Column<double>(type: "float", nullable: false),
                     Severity = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Timestamp = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
-                    Value = table.Column<double>(type: "float", nullable: false)
+                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -48,8 +35,8 @@ namespace Oilgas.SqlServer.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    Field = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Field = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Well = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
@@ -58,16 +45,33 @@ namespace Oilgas.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Ticks",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    DeviceId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Metric = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Value = table.Column<double>(type: "float", nullable: false),
+                    Unit = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Timestamp = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Ticks", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Devices",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     MineId = table.Column<int>(type: "int", nullable: false),
-                    IsOnline = table.Column<bool>(type: "bit", nullable: false),
-                    LastSeenAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    Type = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Serial = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Type = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false)
+                    IsOnline = table.Column<bool>(type: "bit", nullable: false),
+                    LastSeenAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -89,6 +93,27 @@ namespace Oilgas.SqlServer.Migrations
                 name: "IX_Devices_MineId",
                 table: "Devices",
                 column: "MineId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Ticks_DeviceId_Timestamp",
+                table: "Ticks",
+                columns: new[] { "DeviceId", "Timestamp" });
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "Anomalies");
+
+            migrationBuilder.DropTable(
+                name: "Devices");
+
+            migrationBuilder.DropTable(
+                name: "Ticks");
+
+            migrationBuilder.DropTable(
+                name: "Mines");
         }
     }
 }

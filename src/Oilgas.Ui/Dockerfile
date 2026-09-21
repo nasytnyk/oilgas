@@ -5,7 +5,7 @@ WORKDIR /src
 
 COPY global.json ./
 COPY src/Oilgas.Model/Oilgas.Model.csproj               src/Oilgas.Model/
-COPY src/Oilgas.SqlServer/Oilgas.SqlServer.csproj       src/Oilgas.SqlServer/
+COPY src/Oilgas.Ef/Oilgas.Ef.csproj       src/Oilgas.Ef/
 COPY src/Oilgas.Ui/Oilgas.Ui.csproj           src/Oilgas.Ui/
 RUN dotnet restore src/Oilgas.Ui/Oilgas.Ui.csproj
 

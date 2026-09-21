@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Oilgas.SqlServer;
+using Oilgas.Ef;
 using Oilgas.Ui;
 
 var builder = WebApplication.CreateBuilder(args);

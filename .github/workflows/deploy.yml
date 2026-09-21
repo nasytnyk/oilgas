@@ -54,11 +54,11 @@ jobs:
             db:
               - 'src/Oilgas.RmqToDb/**'
               - 'src/Oilgas.Model/**'
-              - 'src/Oilgas.SqlServer/**'
+              - 'src/Oilgas.Ef/**'
             ui:
               - 'src/Oilgas.Ui/**'
               - 'src/Oilgas.Model/**'
-              - 'src/Oilgas.SqlServer/**'
+              - 'src/Oilgas.Ef/**'
 
       - name: Log in to GHCR
         uses: docker/login-action@v3

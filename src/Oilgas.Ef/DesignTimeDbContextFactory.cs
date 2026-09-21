@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace Oilgas.SqlServer;
+namespace Oilgas.Ef;
 
 /// <summary>
 /// Потрібна лише інструменту `dotnet ef` (design-time): дає йому спосіб створити контекст

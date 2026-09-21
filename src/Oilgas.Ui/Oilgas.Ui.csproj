@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Oilgas.SqlServer\Oilgas.SqlServer.csproj" />
+    <ProjectReference Include="..\Oilgas.Ef\Oilgas.Ef.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Oilgas.Model;
-using Oilgas.SqlServer;
+using Oilgas.Ef;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 

@@ -5,11 +5,11 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Oilgas.SqlServer;
+using Oilgas.Ef;
 
 #nullable disable
 
-namespace Oilgas.SqlServer.Migrations
+namespace Oilgas.Ef.Migrations
 {
     [DbContext(typeof(OilgasDbContext))]
     [Migration("20260920142124_InitialCreate")]

@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Oilgas.Model;
-using Oilgas.SqlServer;
+using Oilgas.Ef;
 
 namespace Oilgas.Ui;
 

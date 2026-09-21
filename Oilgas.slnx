@@ -3,7 +3,7 @@
     <Project Path="src/Oilgas.Hardware/Oilgas.Hardware.csproj" />
     <Project Path="src/Oilgas.RmqToDb/Oilgas.RmqToDb.csproj" />
     <Project Path="src/Oilgas.Model/Oilgas.Model.csproj" />
-    <Project Path="src/Oilgas.SqlServer/Oilgas.SqlServer.csproj" />
+    <Project Path="src/Oilgas.Ef/Oilgas.Ef.csproj" />
     <Project Path="src/Oilgas.Ui/Oilgas.Ui.csproj" />
     <Project Path="src/Oilgas.MqttToRmq/Oilgas.MqttToRmq.csproj" />
   </Folder>

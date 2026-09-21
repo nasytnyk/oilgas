@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Oilgas.Model;
 
-namespace Oilgas.SqlServer;
+namespace Oilgas.Ef;
 
 /// <summary>
 /// EF Core контекст. Мапить POCO-сутність Tick на таблицю Azure SQL.
