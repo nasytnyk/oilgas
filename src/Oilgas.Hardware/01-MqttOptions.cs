@@ -8,6 +8,6 @@ public sealed class MqttOptions
 {
     public const string SectionName = "Mqtt";
 
-    public string Host { get; set; } = "localhost";
+    public string Host { get; set; } = "localhost";  // локально localhost, у хмарі oilgas-mosquitto (deploy)
     public int Port { get; set; } = 1883;
 }
