@@ -150,15 +150,15 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.hardware == 'true' }}
         run: |
           # Hardware — чистий Worker без HTTP/ingress: публікує в MQTT, керується командою з MQTT.
+          ENVS="Mqtt__Host=oilgas-mosquitto Mqtt__Port=1883 Hardware__IntervalSeconds=5"
           if az containerapp show -n oilgas-hardware -g "$RG" -o none 2>/dev/null; then
             az containerapp update -n oilgas-hardware -g "$RG" \
-              --image "$HW_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+              --image "$HW_IMAGE:$GITHUB_SHA" --replace-env-vars $ENVS --only-show-errors -o none
           else
             az containerapp create -n oilgas-hardware -g "$RG" --environment "$ENV_NAME" \
               --image "$HW_IMAGE:$GITHUB_SHA" \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
-              --env-vars "Mqtt__Host=oilgas-mosquitto" "Mqtt__Port=1883" "Hardware__IntervalSeconds=5" \
-              --only-show-errors -o none
+              --env-vars $ENVS --only-show-errors -o none
           fi
 
       - name: Deploy RabbitMQ (internal AMQP broker)
@@ -168,33 +168,33 @@ jobs:
             echo "::error::Секрет RABBITMQ_PASSWORD не заданий. Додай: gh secret set RABBITMQ_PASSWORD -R nasytnyk/oilgas"
             exit 1
           fi
+          ENVS="RABBITMQ_DEFAULT_USER=oilgas RABBITMQ_DEFAULT_PASS=secretref:rabbit-pass"
           if az containerapp show -n oilgas-rabbitmq -g "$RG" -o none 2>/dev/null; then
-            az containerapp update -n oilgas-rabbitmq -g "$RG" --image "$RABBIT_IMAGE" --only-show-errors -o none
+            az containerapp update -n oilgas-rabbitmq -g "$RG" --image "$RABBIT_IMAGE" \
+              --set-secrets "rabbit-pass=$RABBITMQ_PASSWORD" --replace-env-vars $ENVS --only-show-errors -o none
           else
             az containerapp create -n oilgas-rabbitmq -g "$RG" --environment "$ENV_NAME" \
               --image "$RABBIT_IMAGE" \
               --ingress internal --transport tcp --target-port 5672 --exposed-port 5672 \
               --min-replicas 1 --max-replicas 1 --cpu 0.5 --memory 1.0Gi \
               --secrets "rabbit-pass=$RABBITMQ_PASSWORD" \
-              --env-vars "RABBITMQ_DEFAULT_USER=oilgas" "RABBITMQ_DEFAULT_PASS=secretref:rabbit-pass" \
-              --only-show-errors -o none
+              --env-vars $ENVS --only-show-errors -o none
           fi
 
       - name: Deploy MqttToRmq (Mosquitto -> RabbitMQ bridge)
         if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.all == 'true' || steps.filter.outputs.bridge == 'true' }}
         run: |
+          ENVS="Mqtt__Host=oilgas-mosquitto Mqtt__Port=1883 Rabbit__Host=oilgas-rabbitmq Rabbit__Port=5672 Rabbit__User=oilgas Rabbit__Password=secretref:rabbit-pass"
           if az containerapp show -n oilgas-mqtt-to-rmq -g "$RG" -o none 2>/dev/null; then
             az containerapp update -n oilgas-mqtt-to-rmq -g "$RG" \
-              --image "$BRIDGE_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+              --image "$BRIDGE_IMAGE:$GITHUB_SHA" \
+              --set-secrets "rabbit-pass=$RABBITMQ_PASSWORD" --replace-env-vars $ENVS --only-show-errors -o none
           else
             az containerapp create -n oilgas-mqtt-to-rmq -g "$RG" --environment "$ENV_NAME" \
               --image "$BRIDGE_IMAGE:$GITHUB_SHA" \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
               --secrets "rabbit-pass=$RABBITMQ_PASSWORD" \
-              --env-vars "Mqtt__Host=oilgas-mosquitto" "Mqtt__Port=1883" \
-                         "Rabbit__Host=oilgas-rabbitmq" "Rabbit__Port=5672" \
-                         "Rabbit__User=oilgas" "Rabbit__Password=secretref:rabbit-pass" \
-              --only-show-errors -o none
+              --env-vars $ENVS --only-show-errors -o none
           fi
 
       - name: Deploy RmqToDb (RabbitMQ -> Azure SQL microservice)
@@ -204,18 +204,17 @@ jobs:
             echo "::warning::SQL_CONNECTION не заданий — пропускаю RmqToDb. Додай: gh secret set SQL_CONNECTION -R nasytnyk/oilgas"
             exit 0
           fi
+          ENVS="Rabbit__Host=oilgas-rabbitmq Rabbit__Port=5672 Rabbit__User=oilgas Rabbit__Password=secretref:rabbit-pass ConnectionStrings__Sql=secretref:sql-conn"
           if az containerapp show -n oilgas-rmq-to-db -g "$RG" -o none 2>/dev/null; then
             az containerapp update -n oilgas-rmq-to-db -g "$RG" \
-              --image "$DB_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+              --image "$DB_IMAGE:$GITHUB_SHA" \
+              --set-secrets "rabbit-pass=$RABBITMQ_PASSWORD" "sql-conn=$SQL_CONNECTION" --replace-env-vars $ENVS --only-show-errors -o none
           else
             az containerapp create -n oilgas-rmq-to-db -g "$RG" --environment "$ENV_NAME" \
               --image "$DB_IMAGE:$GITHUB_SHA" \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
               --secrets "rabbit-pass=$RABBITMQ_PASSWORD" "sql-conn=$SQL_CONNECTION" \
-              --env-vars "Rabbit__Host=oilgas-rabbitmq" "Rabbit__Port=5672" \
-                         "Rabbit__User=oilgas" "Rabbit__Password=secretref:rabbit-pass" \
-                         "ConnectionStrings__Sql=secretref:sql-conn" \
-              --only-show-errors -o none
+              --env-vars $ENVS --only-show-errors -o none
           fi
 
       - name: Deploy Ui (GraphQL API + engineering console)
@@ -225,19 +224,17 @@ jobs:
             echo "::warning::SQL_CONNECTION не заданий — пропускаю Ui (потрібна БД для queries)."
             exit 0
           fi
+          ENVS="Rabbit__Host=oilgas-rabbitmq Rabbit__Port=5672 Rabbit__User=oilgas Rabbit__Password=secretref:rabbit-pass ConnectionStrings__Sql=secretref:sql-conn Mqtt__Host=oilgas-mosquitto Mqtt__Port=1883"
           if az containerapp show -n oilgas-ui -g "$RG" -o none 2>/dev/null; then
             az containerapp update -n oilgas-ui -g "$RG" \
-              --image "$UI_IMAGE:$GITHUB_SHA" --only-show-errors -o none
+              --image "$UI_IMAGE:$GITHUB_SHA" \
+              --set-secrets "rabbit-pass=$RABBITMQ_PASSWORD" "sql-conn=$SQL_CONNECTION" --replace-env-vars $ENVS --only-show-errors -o none
           else
             az containerapp create -n oilgas-ui -g "$RG" --environment "$ENV_NAME" \
               --image "$UI_IMAGE:$GITHUB_SHA" \
               --ingress external --target-port 8080 \
               --min-replicas 1 --max-replicas 1 --cpu 0.25 --memory 0.5Gi \
               --secrets "rabbit-pass=$RABBITMQ_PASSWORD" "sql-conn=$SQL_CONNECTION" \
-              --env-vars "Rabbit__Host=oilgas-rabbitmq" "Rabbit__Port=5672" \
-                         "Rabbit__User=oilgas" "Rabbit__Password=secretref:rabbit-pass" \
-                         "ConnectionStrings__Sql=secretref:sql-conn" \
-                         "Mqtt__Host=oilgas-mosquitto" "Mqtt__Port=1883" \
-              --only-show-errors -o none
+              --env-vars $ENVS --only-show-errors -o none
           fi
           echo "Console URL: https://$(az containerapp show -n oilgas-ui -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
