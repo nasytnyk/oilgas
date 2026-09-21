@@ -10,7 +10,7 @@ namespace Oilgas.MqttToRmq;
 /// Міст Mosquitto → RabbitMQ. Підписується на MQTT-топіки і ПЕРЕКЛАДАЄ байти повідомлення
 /// у topic-exchange RabbitMQ, а MQTT-топік кладе в routing key ('/' → '.').
 /// Pass-through: жодної десеріалізації — мінімум CPU/алокацій на гарячому шляху
-/// (див. problems/2026-09-20-mqtt-rabbit-bridge.md).
+/// (див. problems/mqtt-rabbit-bridge.md).
 /// </summary>
 public sealed class BridgeWorker(
     IOptions<MqttOptions> mqttOptions,

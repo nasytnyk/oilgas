@@ -15,4 +15,4 @@ mosquitto
 ## Other
 - GHCR containers deploy on `main` push
 - Build log (ukrainian): [AZURE-INIT.md](docs/AZURE-INIT.md).
-- Internal TCP problem: [problems/2026-09-19-mqtt-internal-ingress.md](problems/2026-09-19-mqtt-internal-ingress.md).
+- Internal TCP problem: [problems/mqtt-internal-ingress.md](problems/mqtt-internal-ingress.md).

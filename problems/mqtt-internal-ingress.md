@@ -1,6 +1,5 @@
 # Проблема: Hardware не міг достукатись до Mosquitto в Azure Container Apps
 
-**Дата:** 2026-09-19
 **Компоненти:** `oilgas-hardware` (MQTT-клієнт, MQTTnet) → `oilgas-mosquitto` (брокер, eclipse-mosquitto), обидва — Azure Container Apps в одному environment `oilgas-env`.
 
 ---

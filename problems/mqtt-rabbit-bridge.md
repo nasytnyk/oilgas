@@ -1,6 +1,5 @@
 # Дизайн: міст Mosquitto → RabbitMQ — чому pass-through, а не типізація
 
-**Дата:** 2026-09-20
 **Компоненти:** `Oilgas.WorkerTier` (BridgeWorker), `Oilgas.RawLog` (перший споживач), RabbitMQ (topic-exchange).
 **Тип:** свідоме дизайн-рішення (економія компьюту).
 

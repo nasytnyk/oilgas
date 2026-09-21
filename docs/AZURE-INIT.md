@@ -9,7 +9,7 @@ Runbook під **поточну** ситуацію: self-hosted **Mosquitto** (�
 - Брокер: **Mosquitto**, окремий Container App, **internal TCP** ingress :1883
 - Hardware: окремий Container App, **external** ingress :8080 (веб-морда + `/start` `/stop`)
 - Образи: **GHCR** (public); авт-ція GitHub→Azure: **OIDC federated**
-- **Мережевий нюанс:** internal TCP-застосунок доступний **за іменем** (`oilgas-mosquitto`), не за FQDN — див. `problems/2026-09-19-mqtt-internal-ingress.md`
+- **Мережевий нюанс:** internal TCP-застосунок доступний **за іменем** (`oilgas-mosquitto`), не за FQDN — див. `problems/mqtt-internal-ingress.md`
 
 ## Передумови
 - `az`, `gh` (авторизований), Docker; `az login` виконано; RG `oilgas-rg` створено.
